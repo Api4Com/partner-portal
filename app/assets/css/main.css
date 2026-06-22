@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: 'Public Sans', sans-serif;
+
+  /* Paleta oficial API4COM (azul/navy) */
+  --color-brand-50: #f0f9ff;
+  --color-brand-100: #e0f2fe;
+  --color-brand-200: #b9e6fb;
+  --color-brand-300: #7cd2f6;
+  --color-brand-400: #36bbef;
+  --color-brand-500: #16a4df;
+  --color-brand-600: #1488d6;
+  --color-brand-700: #145b82;
+  --color-brand-800: #0e3a5c;
+  --color-brand-900: #0a2740;
+  --color-brand-950: #07203a;
+}
