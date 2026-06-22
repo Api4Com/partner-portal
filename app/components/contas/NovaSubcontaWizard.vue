@@ -120,8 +120,19 @@ function next() {
                 <div class="mb-0.5 text-[13px] font-bold">Como se cobra é definido pela subconta</div>
                 <div class="text-[11px] leading-snug text-muted">
                   A própria subconta escolhe pré-pago ou plano ao comprar direto da API4COM. Você apenas
-                  provisiona o acesso e acompanha de forma read-only no painel.
+                  provisiona o acesso e acompanha a escolha de forma read-only no painel.
                 </div>
+              </div>
+            </div>
+
+            <!-- Modelo selecionado -->
+            <div class="flex items-center gap-2.5 rounded-xl border border-dashed border-primary/30 bg-primary/5 px-3.5 py-3">
+              <div class="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                <UIcon name="i-lucide-credit-card" class="h-4 w-4" />
+              </div>
+              <div>
+                <div class="text-[11px] font-semibold uppercase tracking-wider text-dimmed">Modelo selecionado</div>
+                <div class="text-[13px] font-bold">Cobrança definida pela subconta · individual na subconta</div>
               </div>
             </div>
           </div>
@@ -133,10 +144,16 @@ function next() {
                 <UIcon name="i-lucide-credit-card" class="h-[17px] w-[17px] text-primary" />
                 <div class="text-[13px] font-bold">Saldo próprio e independente</div>
               </div>
-              <p class="text-xs leading-relaxed text-muted">
-                Esta subconta compra direto da API4COM, com saldo próprio. A Conta Principal não define
-                cobrança nem crédito inicial — apenas acompanha (read-only).
+              <p class="mb-3 text-xs leading-relaxed text-muted">
+                Esta subconta compra direto da API4COM, com saldo próprio e independente.
               </p>
+              <div class="flex items-start gap-2.5 rounded-lg border border-default bg-default px-3.5 py-2.5">
+                <UIcon name="i-lucide-info" class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span class="text-xs leading-snug text-muted">
+                  A própria subconta escolhe pré-pago ou plano e faz a primeira compra ao acessar o painel.
+                  A conta principal não define cobrança nem crédito inicial — apenas acompanha a escolha (read-only).
+                </span>
+              </div>
             </div>
 
             <div class="overflow-hidden rounded-xl border border-default">
@@ -153,8 +170,16 @@ function next() {
                   <span class="text-right text-[13px] font-semibold">{{ email.trim() || '—' }}</span>
                 </div>
                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                  <span class="text-xs font-medium text-muted">Cobrança</span>
+                  <span class="text-xs font-medium text-muted">Como se cobra</span>
                   <span class="text-right text-[13px] font-semibold">Definido pela subconta</span>
+                </div>
+                <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <span class="text-xs font-medium text-muted">Quem paga</span>
+                  <span class="text-right text-[13px] font-semibold">Individual na subconta</span>
+                </div>
+                <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <span class="text-xs font-medium text-muted">Saldo</span>
+                  <span class="text-right text-[13px] font-semibold">Saldo próprio · gerido pela subconta</span>
                 </div>
                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
                   <span class="text-xs font-medium text-muted">Convite</span>
