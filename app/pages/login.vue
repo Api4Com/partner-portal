@@ -62,6 +62,42 @@ function toggleMode() {
   mode.value = mode.value === 'login' ? 'signup' : 'login'
   errorMsg.value = null
 }
+
+// Destaques do painel de marca
+const HIGHLIGHTS = [
+  'Roadmap traduzido: negócio + técnico, lado a lado',
+  'Kits de venda e materiais por recurso',
+  'Acesso antecipado aos betas da plataforma'
+]
+
+// Animação "typewriter" no logotipo API4COM — troca a terminação "COM".
+const COM_WORDS = ['COMUNICAÇÃO INTELIGENTE', 'COMERCIAL', 'COMPROMISSO', 'COMUNIDADE', 'YOU']
+const typed = ref('')
+let typeTimer: ReturnType<typeof setTimeout> | undefined
+
+onMounted(() => {
+  let wordIndex = 0
+  let deleting = false
+  function step() {
+    const word = COM_WORDS[wordIndex]!
+    if (!deleting && typed.value === word) {
+      typeTimer = setTimeout(() => { deleting = true; step() }, 1600)
+      return
+    }
+    if (deleting && typed.value === '') {
+      deleting = false
+      wordIndex = (wordIndex + 1) % COM_WORDS.length
+      typeTimer = setTimeout(step, 200)
+      return
+    }
+    const w = COM_WORDS[wordIndex]!
+    typed.value = deleting ? w.slice(0, typed.value.length - 1) : w.slice(0, typed.value.length + 1)
+    typeTimer = setTimeout(step, deleting ? 45 : 85)
+  }
+  step()
+})
+
+onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
 </script>
 
 <template>
@@ -80,17 +116,30 @@ function toggleMode() {
         </div>
       </div>
 
-      <div class="relative space-y-4">
+      <div class="relative space-y-5">
         <span class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-100 ring-1 ring-inset ring-white/15">
           Voz e IA para os seus clientes
         </span>
         <h1 class="text-3xl font-bold leading-tight tracking-tight">
           Você integra,<br>a gente cuida da comunicação.
         </h1>
-        <p class="max-w-md leading-relaxed text-brand-100/80">
-          Acompanhe a evolução da plataforma em dupla linguagem — o valor comercial para vender e o
-          detalhe técnico para integrar.
+
+        <p class="font-mono text-2xl font-bold tracking-tight">
+          <span class="text-white">API4</span><span class="text-brand-400">{{ typed }}</span><span class="ml-0.5 animate-pulse text-brand-400">|</span>
         </p>
+
+        <p class="max-w-md leading-relaxed text-brand-100/80">
+          Neste portal você acompanha cada novidade da plataforma em
+          <strong class="text-white">dupla linguagem</strong>: o valor comercial para vender e o
+          detalhe técnico para integrar — com kits de venda e acesso antecipado aos betas.
+        </p>
+
+        <ul class="space-y-2.5 pt-1 text-sm text-brand-50">
+          <li v-for="t in HIGHLIGHTS" :key="t" class="flex items-center gap-2.5">
+            <UIcon name="i-lucide-circle-check" class="h-4 w-4 shrink-0 text-brand-400" />
+            {{ t }}
+          </li>
+        </ul>
       </div>
 
       <p class="relative text-[11px] font-medium text-brand-200/70">
