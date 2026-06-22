@@ -53,16 +53,22 @@ const rows = computed(() => {
 })
 
 const kpis = computed(() => [
-  { label: 'Clientes', icon: 'i-lucide-building-2', value: String(total.value), sub: 'clientes na sua base' },
-  { label: 'Usuários', icon: 'i-lucide-users', value: fmt(totalUsers.value), sub: 'agentes / ramais webphone' },
+  { label: 'Clientes', icon: 'i-lucide-building-2', iconClass: 'bg-primary/10 text-primary', value: String(total.value), sub: 'clientes na sua base' },
+  { label: 'Usuários', icon: 'i-lucide-users', iconClass: 'bg-purple-50 text-purple-600', value: fmt(totalUsers.value), sub: 'agentes / ramais webphone' },
   {
     label: 'Ligando (30d)',
     icon: 'i-lucide-phone-call',
+    iconClass: 'bg-emerald-50 text-emerald-600',
     value: `${ativas.value} de ${total.value}`,
     sub: inativas.value > 0 ? `${inativas.value} sem ligar há +30 dias` : 'todos ativos no período'
   },
-  { label: 'Volume do Mês', icon: 'i-lucide-activity', value: fmt(totalMinutes.value), sub: 'minutos · todas as subcontas' }
+  { label: 'Volume do Mês', icon: 'i-lucide-activity', iconClass: 'bg-primary/10 text-primary', value: fmt(totalMinutes.value), sub: 'minutos · todas as subcontas' }
 ])
+
+// Cor da barra de volumetria conforme o status da subconta.
+function barClass(status: SubcontaStatus) {
+  return status === 'bloqueado' ? 'bg-error' : status === 'inativo' ? 'bg-neutral-300' : 'bg-primary'
+}
 
 function onCreated(s: Subconta) {
   add(s)
@@ -89,7 +95,7 @@ function onCreated(s: Subconta) {
         <UCard v-for="k in kpis" :key="k.label" :ui="{ body: 'p-5' }">
           <div class="flex items-center justify-between">
             <span class="text-[13px] font-semibold text-muted">{{ k.label }}</span>
-            <div class="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary">
+            <div class="grid h-9 w-9 place-items-center rounded-lg" :class="k.iconClass">
               <UIcon :name="k.icon" class="h-[18px] w-[18px]" />
             </div>
           </div>
@@ -181,7 +187,8 @@ function onCreated(s: Subconta) {
                     <div class="mb-1.5 text-[13px] font-semibold">{{ fmt(s.minutes) }} min</div>
                     <div class="h-[5px] overflow-hidden rounded-full bg-muted">
                       <div
-                        class="h-full rounded-full bg-primary"
+                        class="h-full rounded-full"
+                        :class="barClass(s.status)"
                         :style="{ width: Math.max(6, Math.round((s.minutes / maxMin) * 100)) + '%' }"
                       />
                     </div>
@@ -214,7 +221,13 @@ function onCreated(s: Subconta) {
         </div>
 
         <template #footer>
-          <span class="text-xs text-dimmed">Mostrando {{ rows.length }} subcontas</span>
+          <div class="flex items-center justify-between text-xs text-dimmed">
+            <span>Mostrando {{ rows.length }} subcontas</span>
+            <div class="flex gap-1.5">
+              <UButton color="neutral" variant="outline" size="xs" disabled>Anterior</UButton>
+              <UButton color="neutral" variant="outline" size="xs">Próximo</UButton>
+            </div>
+          </div>
         </template>
       </UCard>
     </div>
