@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HORIZONS, KPIS, fetchRoadmapData, type Horizon, type PartnerProfile } from '~/lib/roadmap'
+import { KPIS, fetchRoadmapData, type PartnerProfile } from '~/lib/roadmap'
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
@@ -29,9 +29,10 @@ const dashDescription = computed(() =>
     : 'Acompanhe endpoints, webhooks e mudanças de contrato de API antes de chegarem à produção. Solicite acesso a betas direto daqui.'
 )
 
-function columnItems(h: Horizon) {
-  return items.value.filter(i => i.horizon === h)
-}
+// Camada do que já está em desenvolvimento.
+const nowItems = computed(() => items.value.filter(i => i.horizon === 'now'))
+// Caixa de ideias no radar: "próximo" + "futuro" juntos, sem ordem de prioridade.
+const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
 </script>
 
 <template>
@@ -65,7 +66,7 @@ function columnItems(h: Horizon) {
           <p class="max-w-2xl text-sm text-muted">{{ dashDescription }}</p>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <UCard v-for="kpi in KPIS" :key="kpi.id" :ui="{ body: 'p-5' }">
             <div class="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
               <UIcon :name="kpi.icon" class="h-5 w-5" />
@@ -76,36 +77,52 @@ function columnItems(h: Horizon) {
         </div>
       </section>
 
-      <!-- Quadro -->
+      <!-- Camada 1: o que já está sendo construído -->
       <section class="space-y-4">
-        <div class="flex items-baseline justify-between">
-          <h2 class="text-lg font-semibold">Quadro do Roadmap</h2>
-          <p class="text-xs text-dimmed">Horizontes de entrega</p>
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+            <h2 class="text-lg font-semibold">Em desenvolvimento agora</h2>
+            <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              {{ nowItems.length }}
+            </span>
+          </div>
+          <p class="text-sm text-muted">O que o time já está construindo · Beta Fechado.</p>
         </div>
 
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div
-            v-for="h in HORIZONS"
-            :key="h.id"
-            class="flex flex-col rounded-2xl border border-default bg-muted/60 p-3"
-          >
-            <div class="mb-3 rounded-xl bg-gradient-to-b px-3 py-2.5 ring-1 ring-inset" :class="h.accent">
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-slate-900">{{ h.title }}</h3>
-                <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 shadow-sm">
-                  {{ columnItems(h.id).length }}
-                </span>
-              </div>
-              <p class="mt-0.5 text-[11px] font-medium opacity-90">{{ h.caption }}</p>
-            </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <RoadmapCard v-for="item in nowItems" :key="item.id" :item="item" />
+        </div>
+        <p v-if="nowItems.length === 0" class="rounded-2xl border border-dashed border-default px-4 py-10 text-center text-xs text-dimmed">
+          Nada em desenvolvimento ativo no momento.
+        </p>
+      </section>
 
-            <div class="flex flex-1 flex-col gap-3">
-              <RoadmapCard v-for="item in columnItems(h.id)" :key="item.id" :item="item" />
-              <p v-if="columnItems(h.id).length === 0" class="px-2 py-8 text-center text-xs text-dimmed">
-                Nenhum item neste horizonte.
-              </p>
-            </div>
+      <!-- Camada 2: caixa de ideias no radar -->
+      <section class="space-y-4">
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-lightbulb" class="h-5 w-5 text-amber-500" />
+            <h2 class="text-lg font-semibold">No radar</h2>
+            <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted ring-1 ring-inset ring-default">
+              {{ radarItems.length }}
+            </span>
           </div>
+          <p class="max-w-2xl text-sm text-muted">
+            Ideias que estamos explorando. Sem ordem de prioridade, data ou promessa de entrega — é o que está no nosso radar e pode (ou não) virar produto.
+          </p>
+        </div>
+
+        <div class="rounded-2xl border border-dashed border-default bg-muted/40 p-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <RoadmapCard v-for="item in radarItems" :key="item.id" :item="item" />
+          </div>
+          <p v-if="radarItems.length === 0" class="px-2 py-8 text-center text-xs text-dimmed">
+            Nenhuma ideia no radar por enquanto.
+          </p>
         </div>
       </section>
     </div>

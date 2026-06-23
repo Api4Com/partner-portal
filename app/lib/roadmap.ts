@@ -72,7 +72,6 @@ export interface KpiMeta { id: string, label: string, value: string, icon: strin
 export const KPIS: KpiMeta[] = [
   { id: 'integrations', label: 'Integrações Ativas', value: '1.284', icon: 'i-lucide-plug' },
   { id: 'beta', label: 'Recursos em Beta Disponíveis', value: '6', icon: 'i-lucide-flask-conical' },
-  { id: 'success', label: 'Taxa de Sucesso da API', value: '99,98%', icon: 'i-lucide-gauge' },
   { id: 'uptime', label: 'Chamadas de API (30d)', value: '42,7M', icon: 'i-lucide-activity' }
 ]
 
