@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mock da feature "Hierarquia de Contas" — cenário Parceiro CRM · Individual.
  * Cada subconta (cliente) tem saldo próprio e compra direto da API4COM; a Conta
  * Principal apenas provisiona e acompanha (read-only). Tudo estático.
@@ -73,30 +73,90 @@ export const CHARGE_BADGE: Record<SubcontaCharge, { label: string, color: BadgeC
   pending: { label: 'A definir', color: 'warning' }
 }
 
-/* ------------------------------------------------ Detalhe da subconta (mock) */
+/* ------------------------------------------------- Usuários da subconta (mock) */
 
-export interface CdrLog {
-  time: string
-  number: string
-  dur: string
-  status: string
-  /** Sucesso (200) tem gravação; falhas não. */
-  ok: boolean
+export type UsuarioRole = 'admin' | 'usuario'
+
+export interface Usuario {
+  id: string
+  name: string
+  email: string
+  role: UsuarioRole
+  active: boolean
+  /** Última ligação realizada (ISO). Vazio = nunca ligou. */
+  lastCall: string
 }
+
+export const ROLE_BADGE: Record<UsuarioRole, { label: string, color: BadgeColor }> = {
+  admin: { label: 'Admin', color: 'primary' },
+  usuario: { label: 'Usuário', color: 'neutral' }
+}
+
+/** Formata a última ligação (ISO) para pt-BR; vazio → "Nunca ligou". */
+export function fmtLastCall(iso: string): string {
+  if (!iso) return 'Nunca ligou'
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+}
+
+const NOMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elaine', 'Felipe', 'Gabriela', 'Hugo', 'Isabela', 'João', 'Karina', 'Lucas', 'Marina', 'Nelson', 'Olívia', 'Paulo', 'Renata', 'Sérgio', 'Tatiana', 'Vitor']
+const SOBRENOMES = ['Almeida', 'Barbosa', 'Cardoso', 'Dias', 'Esteves', 'Ferreira', 'Gomes', 'Henrique', 'Lima', 'Moraes', 'Nunes', 'Oliveira', 'Pereira', 'Queiroz', 'Ribeiro', 'Santos', 'Teixeira', 'Vasconcelos']
+
+/** Hash determinístico simples (FNV-1a) — evita Math.random no SSR. */
+function hash(s: string): number {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function slug(name: string): string {
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '.')
+}
+
+/** Tint de avatar est\u00e1vel derivado de uma chave (id/nome) \u2014 n\u00e3o muda ao filtrar/ordenar. */
+export function avatarTint(key: string): string {
+  return AVATAR_PALETTE[hash(key) % AVATAR_PALETTE.length]!
+}
+
+/** Gera a lista de usuários de uma subconta de forma determinística (id + índice). */
+export function buildUsuarios(sub: Subconta): Usuario[] {
+  const domain = slug(sub.name).replace(/\./g, '') + '.com.br'
+  return Array.from({ length: sub.users }, (_, i) => {
+    const seed = hash(`${sub.id}:${i}`)
+    const first = NOMES[seed % NOMES.length]!
+    const last = SOBRENOMES[(seed >>> 5) % SOBRENOMES.length]!
+    const name = `${first} ${last}`
+    const active = (seed % 9) !== 0
+    // Última ligação determinística: inativos tendem a ter ligado há mais tempo.
+    const daysAgo = (seed % 40) + (active ? 0 : 25)
+    const minsAgo = (seed >>> 9) % 1440
+    const lastCall = new Date(Date.now() - daysAgo * 86400000 - minsAgo * 60000).toISOString()
+    return {
+      id: `USR-${(seed % 0xffff).toString(16).toUpperCase().padStart(4, '0')}`,
+      name,
+      email: `${slug(first)}.${slug(last)}@${domain}`,
+      role: i === 0 ? 'admin' : 'usuario',
+      active,
+      lastCall
+    }
+  })
+}
+
+/** Gera um id de usuário fictício (usado pelo modal de novo usuário). */
+export function newUsuarioId(): string {
+  return 'USR-' + Math.random().toString(16).slice(2, 6).toUpperCase()
+}
+
+/* ------------------------------------------------ Detalhe da subconta (mock) */
 
 export interface MetaRow { k: string, v: string }
 
 /** API key fictícia (escopo limitado à subconta). */
 export const API_KEY = 'pk_live_4c0m_a1B2c3D4e5F6g7H8i9J0kLmN'
-
-/** Logs de chamada (CDR) de exemplo — isolados por subconta. */
-export const CDR_LOGS: CdrLog[] = [
-  { time: '12/06 14:32', number: '+55 11 98765-4321', dur: '04:12', status: 'Sucesso · 200', ok: true },
-  { time: '12/06 14:28', number: '+55 21 99812-3344', dur: '01:58', status: 'Sucesso · 200', ok: true },
-  { time: '12/06 14:15', number: '+55 11 91234-5678', dur: '00:00', status: 'Falha · 486 Busy', ok: false },
-  { time: '12/06 13:59', number: '+55 31 98877-1122', dur: '06:45', status: 'Sucesso · 200', ok: true },
-  { time: '12/06 13:47', number: '+55 11 95566-7788', dur: '00:14', status: 'Falha · 404', ok: false }
-]
 
 /** Metadados de observabilidade derivados do id da subconta. */
 export function buildMeta(id: string): MetaRow[] {
