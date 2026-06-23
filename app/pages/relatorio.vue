@@ -317,9 +317,15 @@ function exportCsv() {
           <h1 class="mb-1 text-2xl font-bold tracking-tight sm:text-3xl">Relatório de chamadas</h1>
           <p class="text-sm text-muted">Detalhamento de chamadas por subconta · KPIs e listagem com exportação</p>
         </div>
-        <UButton icon="i-lucide-download" color="neutral" variant="outline" :disabled="displayCalls.length === 0" @click="exportCsv">
-          Exportar CSV
-        </UButton>
+        <div class="flex flex-col items-stretch gap-2">
+          <UButton icon="i-lucide-download" color="neutral" variant="outline" :disabled="displayCalls.length === 0" @click="exportCsv">
+            Exportar CSV
+          </UButton>
+          <UButton icon="i-lucide-plug-zap" color="primary" variant="soft" disabled>
+            Acessar via MCP
+            <UBadge color="primary" variant="solid" size="xs" class="ml-1">Em breve</UBadge>
+          </UButton>
+        </div>
       </div>
 
       <!-- Filtros (mesmo molde do detalhe da subconta) -->
