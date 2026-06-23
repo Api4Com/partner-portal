@@ -163,7 +163,7 @@ export function buildMeta(id: string): MetaRow[] {
   const tenant = id.toLowerCase()
   return [
     { k: 'tenant_id', v: tenant },
-    { k: 'log_stream', v: `p4c.cdr.${tenant}` },
+    { k: 'log_stream', v: `p4c.calls.${tenant}` },
     { k: 'region', v: 'br-sao-1' },
     { k: 'webhook_events', v: 'call.start, call.end' },
     { k: 'trace_namespace', v: 'voice/webphone' }

@@ -7,8 +7,8 @@ const operacao = [
   { label: 'Painel Geral', icon: 'i-lucide-layout-dashboard', to: '/' },
   { label: 'Agente API4COM', icon: 'i-lucide-sparkles', to: '/agente' },
   { label: 'Roadmap', icon: 'i-lucide-map', to: '/roadmap' },
-  { label: 'Faturamento', icon: 'i-lucide-receipt', disabled: true },
-  { label: 'Relatórios & CDR', icon: 'i-lucide-chart-column', disabled: true }
+  { label: 'Relatórios', icon: 'i-lucide-chart-column', to: '/relatorio' },
+  { label: 'Faturamento', icon: 'i-lucide-receipt', disabled: true }
 ]
 const plataforma = [
   { label: 'Playbook', icon: 'i-lucide-cable', disabled: true },

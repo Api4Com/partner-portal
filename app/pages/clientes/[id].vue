@@ -416,41 +416,11 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                         </UButton>
                       </div>
 
-                      <p class="mb-1.5 text-xs font-semibold text-muted">Tipo de acesso</p>
-                      <div class="mb-3 flex flex-wrap gap-1.5">
-                        <button
-                          v-for="opt in roleFilterItems"
-                          :key="opt.value"
-                          type="button"
-                          class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
-                          :class="roleFilter === opt.value ? 'border-primary bg-primary text-inverted' : 'border-default bg-default text-muted hover:bg-muted'"
-                          @click="roleFilter = opt.value"
-                        >{{ opt.label }}</button>
-                      </div>
+                      <PortalFilterPills v-model="roleFilter" label="Tipo de acesso" :items="roleFilterItems" class="mb-3" />
 
-                      <p class="mb-1.5 text-xs font-semibold text-muted">Status</p>
-                      <div class="mb-3 flex flex-wrap gap-1.5">
-                        <button
-                          v-for="opt in statusFilterItems"
-                          :key="opt.value"
-                          type="button"
-                          class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
-                          :class="statusFilter === opt.value ? 'border-primary bg-primary text-inverted' : 'border-default bg-default text-muted hover:bg-muted'"
-                          @click="statusFilter = opt.value"
-                        >{{ opt.label }}</button>
-                      </div>
+                      <PortalFilterPills v-model="statusFilter" label="Status" :items="statusFilterItems" class="mb-3" />
 
-                      <p class="mb-1.5 text-xs font-semibold text-muted">Última ligação</p>
-                      <div class="flex flex-wrap gap-1.5">
-                        <button
-                          v-for="opt in dateFilterItems"
-                          :key="opt.value"
-                          type="button"
-                          class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
-                          :class="dateFilter === opt.value ? 'border-primary bg-primary text-inverted' : 'border-default bg-default text-muted hover:bg-muted'"
-                          @click="dateFilter = opt.value"
-                        >{{ opt.label }}</button>
-                      </div>
+                      <PortalFilterPills v-model="dateFilter" label="Última ligação" :items="dateFilterItems" />
                       <div v-if="dateFilter === 'custom'" class="mt-2.5 space-y-2">
                         <div class="flex items-center gap-2">
                           <UInput v-model="customStart" type="date" :max="customEnd || undefined" size="sm" class="flex-1" aria-label="Data inicial" />
@@ -467,24 +437,7 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                 </UPopover>
               </div>
 
-              <div v-if="activeFilterChips.length" class="mt-2.5 flex flex-wrap items-center gap-1.5">
-                <span
-                  v-for="chip in activeFilterChips"
-                  :key="chip.key"
-                  class="inline-flex items-center gap-1 rounded-full border border-default bg-muted py-1 pl-2.5 pr-1 text-xs font-medium text-muted"
-                >
-                  {{ chip.label }}
-                  <button
-                    type="button"
-                    class="grid h-4 w-4 place-items-center rounded-full transition-colors hover:bg-default"
-                    :aria-label="`Remover filtro ${chip.label}`"
-                    @click="chip.clear()"
-                  >
-                    <UIcon name="i-lucide-x" class="h-3 w-3" />
-                  </button>
-                </span>
-                <UButton color="neutral" variant="link" size="xs" @click="clearFilters">Limpar tudo</UButton>
-              </div>
+              <PortalFilterChips :chips="activeFilterChips" class="mt-2.5" @clear-all="clearFilters" />
 
               <p class="mt-2.5 text-xs text-dimmed">
                 Mostrando <span class="font-semibold text-muted">{{ displayUsuarios.length }}</span> de {{ usuarios.length }} usuário{{ usuarios.length === 1 ? '' : 's' }}

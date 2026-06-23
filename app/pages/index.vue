@@ -5,18 +5,16 @@ import {
   initials,
   AVATAR_PALETTE,
   STATUS_BADGE,
-  CHARGE_BADGE,
   type Subconta,
-  type SubcontaStatus,
-  type SubcontaCharge
+  type SubcontaStatus
 } from '~/lib/contas'
+import { buildCalls } from '~/lib/relatorio'
 
 const toast = useToast()
 const { all, add } = useSubcontas()
 
 const search = ref('')
 const statusFilter = ref<SubcontaStatus | 'all'>('all')
-const chargeFilter = ref<SubcontaCharge | 'all'>('all')
 const wizardOpen = ref(false)
 
 const statusItems = [
@@ -25,44 +23,53 @@ const statusItems = [
   { label: 'Bloqueado', value: 'bloqueado' },
   { label: 'Inativo', value: 'inativo' }
 ]
-const chargeItems = [
-  { label: 'Toda cobrança', value: 'all' },
-  { label: 'Pré-pago', value: 'prepaid' },
-  { label: 'Plano · usuário', value: 'plan' },
-  { label: 'A definir', value: 'pending' }
-]
+
+const DAY = 86400000
+const allCalls = computed(() => all.value.flatMap(buildCalls))
 
 const total = computed(() => all.value.length)
-const ativas = computed(() => all.value.filter(s => s.status === 'ativo').length)
-const bloqueadas = computed(() => all.value.filter(s => s.status === 'bloqueado').length)
-const inativas = computed(() => all.value.filter(s => s.status === 'inativo').length)
-const pendentes = computed(() => all.value.filter(s => s.charge === 'pending').length)
-const semPendencia = computed(() => bloqueadas.value === 0 && pendentes.value === 0)
-const totalUsers = computed(() => all.value.reduce((sum, x) => sum + x.users, 0))
 const totalMinutes = computed(() => all.value.reduce((sum, x) => sum + x.minutes, 0))
 const maxMin = computed(() => Math.max(...all.value.map(s => s.minutes), 1))
+
+// Subcontas que ligaram nos últimos 7 dias (distintas no histórico de chamadas).
+const ligando7d = computed(() => {
+  const cutoff = Date.now() - 7 * DAY
+  const ids = new Set<string>()
+  for (const c of allCalls.value) {
+    if (new Date(c.date).getTime() >= cutoff) ids.add(c.subId)
+  }
+  return ids.size
+})
+const semLigar7d = computed(() => Math.max(0, total.value - ligando7d.value))
+
+// Taxa de atendimento das chamadas dos últimos 30 dias (todas as subcontas).
+const taxaAtend30d = computed(() => {
+  const cutoff = Date.now() - 30 * DAY
+  const calls = allCalls.value.filter(c => new Date(c.date).getTime() >= cutoff)
+  if (!calls.length) return 0
+  return Math.round((calls.filter(c => c.cause === 'atendida').length / calls.length) * 100)
+})
 
 const rows = computed(() => {
   const q = search.value.trim().toLowerCase()
   return all.value.filter((s) => {
     const matchesName = !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q)
     const matchesStatus = statusFilter.value === 'all' || s.status === statusFilter.value
-    const matchesCharge = chargeFilter.value === 'all' || s.charge === chargeFilter.value
-    return matchesName && matchesStatus && matchesCharge
+    return matchesName && matchesStatus
   })
 })
 
 const kpis = computed(() => [
-  { label: 'Clientes', icon: 'i-lucide-building-2', iconClass: 'bg-primary/10 text-primary', value: String(total.value), sub: 'clientes na sua base' },
-  { label: 'Usuários', icon: 'i-lucide-users', iconClass: 'bg-purple-50 text-purple-600', value: fmt(totalUsers.value), sub: 'agentes / ramais webphone' },
+  { label: 'Subcontas', icon: 'i-lucide-building-2', iconClass: 'bg-primary/10 text-primary', value: String(total.value), sub: 'subcontas na sua base' },
   {
-    label: 'Ligando (30d)',
+    label: 'Ligando (últimos 7 dias)',
     icon: 'i-lucide-phone-call',
     iconClass: 'bg-emerald-50 text-emerald-600',
-    value: `${ativas.value} de ${total.value}`,
-    sub: inativas.value > 0 ? `${inativas.value} sem ligar há +30 dias` : 'todos ativos no período'
+    value: `${ligando7d.value} de ${total.value}`,
+    sub: semLigar7d.value > 0 ? `${semLigar7d.value} sem ligar nos últimos 7 dias` : 'todas ligaram nos últimos 7 dias'
   },
-  { label: 'Volume do Mês', icon: 'i-lucide-activity', iconClass: 'bg-primary/10 text-primary', value: fmt(totalMinutes.value), sub: 'minutos · todas as subcontas' }
+  { label: 'Volume do Mês', icon: 'i-lucide-activity', iconClass: 'bg-primary/10 text-primary', value: fmt(totalMinutes.value), sub: 'minutos · todas as subcontas' },
+  { label: 'Taxa de atendimento', icon: 'i-lucide-phone-incoming', iconClass: 'bg-amber-50 text-amber-600', value: `${taxaAtend30d.value}%`, sub: 'chamadas atendidas · últimos 30 dias' }
 ])
 
 // Cor da barra de volumetria conforme o status da subconta.
@@ -106,28 +113,6 @@ function onCreated(s: Subconta) {
         </UCard>
       </div>
 
-      <!-- Requer atenção -->
-      <div
-        class="mb-[26px] flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border px-[22px] py-4"
-        :class="semPendencia ? 'border-success/30 bg-success/10' : 'border-warning/30 bg-warning/10'"
-      >
-        <div class="flex items-center gap-2.5">
-          <UIcon
-            :name="semPendencia ? 'i-lucide-circle-check' : 'i-lucide-triangle-alert'"
-            :class="semPendencia ? 'text-success' : 'text-warning'"
-            class="h-5 w-5"
-          />
-          <span class="text-[13px] font-bold">Requer atenção</span>
-        </div>
-        <span v-if="semPendencia" class="text-[13px] text-muted">
-          Nenhuma pendência · todas as subcontas em dia.
-        </span>
-        <div v-else class="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-muted">
-          <span><strong class="text-error">{{ bloqueadas }}</strong> bloqueadas (sem saldo)</span>
-          <span><strong class="text-warning">{{ pendentes }}</strong> cobrança a definir</span>
-        </div>
-      </div>
-
       <!-- Tabela -->
       <UCard :ui="{ body: 'p-0' }">
         <template #header>
@@ -139,20 +124,17 @@ function onCreated(s: Subconta) {
             <div class="flex flex-wrap items-center gap-2.5">
               <UInput v-model="search" icon="i-lucide-search" placeholder="Buscar por nome…" class="w-[190px]" />
               <USelect v-model="statusFilter" :items="statusItems" class="w-[160px]" />
-              <USelect v-model="chargeFilter" :items="chargeItems" class="w-[160px]" />
               <UButton icon="i-lucide-plus" @click="wizardOpen = true">Nova Subconta</UButton>
             </div>
           </div>
         </template>
 
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[920px] border-collapse">
+          <table class="w-full min-w-[720px] border-collapse">
             <thead>
               <tr class="bg-muted/50">
                 <th class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Nome da Subconta</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">ID</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Saldo</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Cobrança</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Volumetria (mês)</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Status</th>
                 <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">Ações</th>
@@ -173,14 +155,6 @@ function onCreated(s: Subconta) {
                 </td>
                 <td class="px-3.5 py-3.5">
                   <span class="rounded-md bg-muted px-2 py-1 font-mono text-xs text-muted">{{ s.id }}</span>
-                </td>
-                <td class="px-3.5 py-3.5">
-                  <UBadge color="neutral" variant="subtle">Saldo próprio</UBadge>
-                </td>
-                <td class="px-3.5 py-3.5">
-                  <UBadge :color="CHARGE_BADGE[s.charge].color" variant="subtle">
-                    {{ CHARGE_BADGE[s.charge].label }}
-                  </UBadge>
                 </td>
                 <td class="px-3.5 py-3.5">
                   <div class="min-w-[130px]">
@@ -212,7 +186,7 @@ function onCreated(s: Subconta) {
                 </td>
               </tr>
               <tr v-if="rows.length === 0" class="border-t border-default">
-                <td colspan="7" class="px-[22px] py-10 text-center text-sm text-dimmed">
+                <td colspan="5" class="px-[22px] py-10 text-center text-sm text-dimmed">
                   Nenhuma subconta encontrada com os filtros aplicados.
                 </td>
               </tr>

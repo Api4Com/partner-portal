@@ -29,7 +29,7 @@ function respondTo(text: string): string {
 
   // Ações
   if (has('encerrar', 'encerre', 'desligar', 'finalizar chamada', 'finalizar a chamada')) {
-    return 'Encerrei a chamada em andamento no ramal padrão.\n\nDuração: 02:14 · status: completada (simulado). A gravação já fica disponível no CDR do cliente.'
+    return 'Encerrei a chamada em andamento no ramal padrão.\n\nDuração: 02:14 · status: completada (simulado). A gravação já fica disponível no relatório de chamadas do cliente.'
   }
   if (has('disparar', 'dispare', 'discar', 'disque', 'fazer uma chamada', 'faça uma chamada', 'ligue para', 'ligar para', 'chamada de teste')) {
     return 'Iniciei uma chamada de teste para +55 11 98765-4321 pelo ramal padrão.\n\nStatus: tocando… (simulado). Posso encerrar quando quiser — é só pedir “encerrar chamada”.'
