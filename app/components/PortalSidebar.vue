@@ -6,12 +6,10 @@ const user = useSupabaseUser()
 const operacao = [
   { label: 'Painel Geral', icon: 'i-lucide-layout-dashboard', to: '/' },
   { label: 'Roadmap', icon: 'i-lucide-map', to: '/roadmap' },
-  { label: 'Relatórios', icon: 'i-lucide-chart-column', to: '/relatorio' },
-  { label: 'Faturamento', icon: 'i-lucide-receipt', disabled: true }
+  { label: 'Relatórios', icon: 'i-lucide-chart-column', to: '/relatorio' }
 ]
 const plataforma = [
-  { label: 'Playbook', icon: 'i-lucide-cable', disabled: true },
-  { label: 'Configurações', icon: 'i-lucide-settings', disabled: true }
+  { label: 'Playbook', icon: 'i-lucide-cable', disabled: true }
 ]
 const adminItems = [{ label: 'Admin', icon: 'i-lucide-shield', to: '/admin' }]
 
@@ -59,7 +57,7 @@ async function logout() {
           title="Acessar produtos API4COM"
         >
           <div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-900/30">
-            <UIcon name="i-lucide-phone" class="h-5 w-5" />
+            <UIcon name="i-lucide-radio" class="h-5 w-5" />
           </div>
           <div class="min-w-0 flex-1 leading-tight">
             <div class="font-bold tracking-tight">API4COM</div>
