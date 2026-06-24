@@ -1,5 +1,7 @@
 /**
- * Autenticação contra o pbxapi (LoopBack), no mesmo padrão do api4com-portal:
+ * Autenticação via bff-portal (proxy fino). Todo tráfego passa pelo BFF, que
+ * repassa ao pbxapi (LoopBack) — o portal NUNCA fala direto com o pbxapi.
+ * Os paths são repassados 1:1 pelo BFF:
  * - login: POST /users/login  { email, password } -> { id, ttl, created }
  * - signup: POST /accounts/signup { name, organization_name, email, password, phone }
  * - o token (id) vai no header `Authorization` (sem "Bearer") em toda request
@@ -31,7 +33,7 @@ export function useAuth() {
     maxAge: 60 * 60 * 24 * 14 // 14 dias, igual ao ttl do pbxapi
   })
   const user = useState<PbxUser | null>('auth-user', () => null)
-  const base = useRuntimeConfig().public.pbxApiBase
+  const base = useRuntimeConfig().public.bffBase
 
   function api<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
     return $fetch<T>(path, {
