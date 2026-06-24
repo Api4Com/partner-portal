@@ -1,6 +1,5 @@
 <script setup lang="ts">
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const { user, logout: signOut } = useAuth()
 
 // Itens ainda não portados ficam desabilitados até virarem telas.
 const operacao = [
@@ -16,16 +15,12 @@ const adminItems = [{ label: 'Admin', icon: 'i-lucide-shield', to: '/admin' }]
 const { data: isAdmin } = useIsAdmin()
 
 const userLabel = computed(
-  () =>
-    (user.value?.user_metadata?.full_name as string) ||
-    (user.value?.user_metadata?.company as string) ||
-    user.value?.email ||
-    'Parceiro'
+  () => user.value?.name || user.value?.email || 'Parceiro'
 )
 
 // Iniciais do usuário logado, derivadas do nome ou do e-mail.
 const userInitials = computed(() => {
-  const src = ((user.value?.user_metadata?.full_name as string) || '').trim() || user.value?.email || ''
+  const src = (user.value?.name || '').trim() || user.value?.email || ''
   const parts = src.replace(/[@._-]/g, ' ').split(/\s+/).filter(Boolean)
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'P'
 })
@@ -40,7 +35,7 @@ const WORKSPACE_APPS = [
 const launcherOpen = ref(false)
 
 async function logout() {
-  await supabase.auth.signOut()
+  await signOut()
   await navigateTo('/login')
 }
 </script>

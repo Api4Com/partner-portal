@@ -1,7 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-// Tipos do banco gerados em app/types/database.types.ts (lidos pelo @nuxtjs/supabase).
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxtjs/supabase'],
+  modules: ['@nuxt/eslint', '@nuxt/ui'],
 
   devtools: {
     enabled: true
@@ -9,11 +8,10 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  supabase: {
-    redirectOptions: {
-      login: '/login',
-      callback: '/confirm',
-      exclude: ['/login']
+  runtimeConfig: {
+    public: {
+      // Base do pbxapi (LoopBack). Igual ao api4com-portal: .../api
+      pbxApiBase: process.env.PBX_API_BASE || 'http://localhost:3000/api'
     }
   },
 

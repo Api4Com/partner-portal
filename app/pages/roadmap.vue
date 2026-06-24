@@ -1,21 +1,13 @@
 <script setup lang="ts">
-import { KPIS, fetchRoadmapData, type PartnerProfile } from '~/lib/roadmap'
+import { KPIS, type PartnerProfile } from '~/lib/roadmap'
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
 const { items, states, profile } = useRoadmap()
 
-// Lê itens publicados + estado do usuário (SSR).
-const { data } = await useAsyncData('roadmap', async () => {
-  if (!user.value) return { items: [], states: {} }
-  return await fetchRoadmapData(supabase, user.value.id)
-})
-
+// TODO: itens do roadmap vinham do Supabase (fetchRoadmapData). Sem backend
+// equivalente ainda, a lista fica vazia até migrarmos a fonte de dados.
 watchEffect(() => {
-  if (data.value) {
-    items.value = data.value.items
-    states.value = data.value.states
-  }
+  items.value = []
+  states.value = {}
 })
 
 const profiles: { id: PartnerProfile, label: string, hint: string, icon: string }[] = [
