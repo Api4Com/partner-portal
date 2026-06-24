@@ -1,8 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const { login, signup } = useAuth()
 
 type Mode = 'login' | 'signup'
 const mode = ref<Mode>('login')
@@ -14,20 +13,18 @@ const state = reactive({
   fullName: '',
   company: '',
   email: '',
-  password: ''
+  password: '',
+  phone: ''
 })
 
-// Se já estiver logado, sai do login.
-watchEffect(() => {
-  if (user.value) navigateTo('/')
-})
-
-function translateError(msg: string): string {
-  if (/invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.'
-  if (/already registered/i.test(msg)) return 'Este e-mail já está cadastrado.'
-  if (/password should be at least/i.test(msg)) return 'A senha deve ter ao menos 6 caracteres.'
-  if (/email not confirmed/i.test(msg)) return 'Confirme seu e-mail antes de entrar.'
-  return msg
+// Extrai a mensagem de erro do pbxapi (LoopBack: { error: { message, code } }).
+function translateError(e: unknown): string {
+  const data = (e as { data?: { error?: { message?: string, code?: string } } })?.data?.error
+  const code = data?.code
+  if (code === 'LOGIN_FAILED' || /login failed/i.test(data?.message || '')) return 'E-mail ou senha incorretos.'
+  if (code === 'LOGIN_FAILED_EMAIL_NOT_VERIFIED') return 'Confirme seu e-mail antes de entrar.'
+  if (code === 'EMAIL_NOT_FOUND') return 'E-mail não encontrado.'
+  return data?.message || (e instanceof Error ? e.message : 'Erro inesperado.')
 }
 
 async function onSubmit() {
@@ -35,24 +32,20 @@ async function onSubmit() {
   loading.value = true
   try {
     if (mode.value === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: state.email,
-        password: state.password
-      })
-      if (error) throw error
+      await login(state.email, state.password)
       await navigateTo('/')
     } else {
-      const { data, error } = await supabase.auth.signUp({
+      await signup({
+        name: state.fullName,
+        organizationName: state.company,
         email: state.email,
         password: state.password,
-        options: { data: { full_name: state.fullName, company: state.company } }
+        phone: state.phone.replace(/\D/g, '')
       })
-      if (error) throw error
-      if (!data.session) confirmSent.value = true
-      else await navigateTo('/')
+      confirmSent.value = true
     }
   } catch (e) {
-    errorMsg.value = translateError(e instanceof Error ? e.message : 'Erro inesperado.')
+    errorMsg.value = translateError(e)
   } finally {
     loading.value = false
   }
@@ -180,7 +173,10 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
                 <UInput v-model="state.fullName" icon="i-lucide-user" placeholder="Seu nome" size="lg" class="w-full" required />
               </UFormField>
               <UFormField name="company">
-                <UInput v-model="state.company" icon="i-lucide-building-2" placeholder="Empresa / Revenda" size="lg" class="w-full" />
+                <UInput v-model="state.company" icon="i-lucide-building-2" placeholder="Empresa / Revenda" size="lg" class="w-full" required />
+              </UFormField>
+              <UFormField name="phone">
+                <UInput v-model="state.phone" type="tel" icon="i-lucide-phone" placeholder="Telefone com DDD" size="lg" class="w-full" required />
               </UFormField>
             </template>
 
