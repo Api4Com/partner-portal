@@ -65,9 +65,9 @@ function toggleMode() {
 
 // Destaques do painel de marca
 const HIGHLIGHTS = [
-  'Roadmap traduzido: negócio + técnico, lado a lado',
-  'Kits de venda e materiais por recurso',
-  'Acesso antecipado aos betas da plataforma'
+  'Painel de subcontas, usuários e consumo',
+  'Relatórios de chamadas com export e gravações',
+  'Roadmap e acesso antecipado aos betas'
 ]
 
 // Animação "typewriter" no logotipo API4COM — troca a terminação "COM".
@@ -112,7 +112,7 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
         </div>
         <div class="leading-tight">
           <p class="font-semibold tracking-tight">API4COM</p>
-          <p class="text-xs text-brand-200">Programa de Parceiros</p>
+          <p class="text-xs text-brand-200">Portal de Parceiros</p>
         </div>
       </div>
 
@@ -129,9 +129,8 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
         </p>
 
         <p class="max-w-md leading-relaxed text-brand-100/80">
-          Neste portal você acompanha cada novidade da plataforma em
-          <strong class="text-white">dupla linguagem</strong>: o valor comercial para vender e o
-          detalhe técnico para integrar — com kits de venda e acesso antecipado aos betas.
+          Sua central de parceria com a API4COM: gerencie subcontas, acompanhe chamadas e consumo em
+          <strong class="text-white">tempo real</strong> e acompanhe o roadmap — tudo num só portal.
         </p>
 
         <ul class="space-y-2.5 pt-1 text-sm text-brand-50">
@@ -170,8 +169,8 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
           </h2>
           <p class="mt-1 text-sm text-muted">
             {{ mode === 'login'
-              ? 'Entre para ver o roadmap e acompanhar seus interesses.'
-              : 'Cadastre-se como parceiro para acessar o roadmap.' }}
+              ? 'Entre para gerenciar suas subcontas e acompanhar a plataforma.'
+              : 'Cadastre-se como parceiro para gerenciar suas subcontas e acessar a plataforma.' }}
           </p>
 
           <UForm :state="state" class="mt-6 space-y-3" @submit="onSubmit">
