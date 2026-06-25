@@ -1,0 +1,35 @@
+services:
+
+  app:
+    build:
+      context: .
+      target: development
+    command: sh -c "npm install && npm run dev -- --host"
+    volumes:
+      - ./:/home/node/app
+      # mantém node_modules do container (não é sobrescrito pelo bind mount)
+      - /home/node/app/node_modules
+    ports:
+      - '3010:3000'
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+
+      # @nuxtjs/supabase exige estas vars no boot. Placeholders por enquanto —
+      # serão substituídos quando o front passar a consumir o bff-portal.
+      - SUPABASE_URL=http://localhost:54321
+      - SUPABASE_KEY=placeholder-anon-key
+
+      # URL do BFF para o NAVEGADOR (host). O browser não resolve nomes de
+      # container, então aponta para a porta exposta do bff-portal no host.
+      - NUXT_PUBLIC_BFF_BASE_URL=http://localhost:3005
+      # URL do BFF para chamadas SSR (dentro da rede docker, via alias `bff`).
+      - BFF_INTERNAL_URL=http://bff:3000
+    networks:
+      - default
+      - platform_shared
+
+networks:
+  platform_shared:
+    name: platform_shared
+    external: true
