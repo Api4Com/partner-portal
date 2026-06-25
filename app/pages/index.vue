@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { fmt, initials, AVATAR_PALETTE, STATUS_BADGE, type Subconta } from '~/lib/contas'
+import { fmt, initials, AVATAR_PALETTE, STATUS_BADGE } from '~/lib/contas'
 
 /* ----- contrato do BFF ----- */
 type SubStatus = 'active' | 'inactive'
@@ -14,7 +14,7 @@ interface Summary {
 }
 
 const toast = useToast()
-const { user, bffFetch } = useAuth()
+const { user, bffFetch, refresh } = useAuth()
 const DAY = 86400000
 
 const search = ref('')
@@ -83,10 +83,12 @@ const kpis = computed(() => {
   ]
 })
 
-// Subconta criada pelo wizard é prepended otimisticamente (sessão; criação real = Em Dev).
-function onCreated(s: Subconta) {
-  subaccounts.value = [{ id: s.id, name: s.name, users: s.users ?? 0, minutes: s.minutes ?? 0 }, ...subaccounts.value]
+async function onCreated(s: Subaccount) {
   toast.add({ title: 'Subconta criada', description: s.name, icon: 'i-lucide-circle-check', color: 'success' })
+  // A nova subconta só entra no escopo num token novo (allowedCustomerIds é
+  // recomputado): renova o JWT e recarrega a lista.
+  await refresh()
+  await load()
 }
 </script>
 
