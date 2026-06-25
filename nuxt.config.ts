@@ -10,9 +10,9 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      // bffBase: login/signup. coreBase: refresh + dados pós-login (TEL-1979).
-      bffBase: process.env.BFF_BASE || 'http://localhost:7002',
-      coreBase: process.env.CORE_BASE || 'http://localhost:3003'
+      // bffBase: login/signup + dados (subaccounts/calls/reports). coreBase: refresh.
+      bffBase: process.env.BFF_BASE || process.env.NUXT_PUBLIC_BFF_BASE_URL || 'http://localhost:3005',
+      coreBase: process.env.CORE_BASE || process.env.NUXT_PUBLIC_CORE_BASE_URL || 'http://localhost:3001'
     }
   },
 

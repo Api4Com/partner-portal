@@ -164,10 +164,10 @@ export function useAuth() {
   }
 
   // Em 401 tenta refresh uma vez antes de propagar o erro.
-  async function coreFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
+  async function authedFetch<T>(base: string, path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
     if (accessToken.value && isExpired(accessToken.value)) await refresh()
     const run = () => $fetch<T>(path, {
-      baseURL: coreBase,
+      baseURL: base,
       ...opts,
       headers: {
         ...(opts.headers as Record<string, string> | undefined),
@@ -184,5 +184,15 @@ export function useAuth() {
     }
   }
 
-  return { token: accessToken, refreshToken, user, login, signup, fetchUser, refresh, logout, coreFetch }
+  // Bearer JWT do Core direto no Core.
+  function coreFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
+    return authedFetch<T>(coreBase, path, opts)
+  }
+
+  // Bearer JWT do Core no BFF (subaccounts/calls/reports — escopo via accountContext).
+  function bffFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
+    return authedFetch<T>(bffBase, path, opts)
+  }
+
+  return { token: accessToken, refreshToken, user, login, signup, fetchUser, refresh, logout, coreFetch, bffFetch }
 }
