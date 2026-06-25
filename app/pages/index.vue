@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { fmt, initials, AVATAR_PALETTE, type Subconta } from '~/lib/contas'
+import { fmt, initials, AVATAR_PALETTE, STATUS_BADGE, type Subconta } from '~/lib/contas'
 
 /* ----- contrato do BFF ----- */
-interface Subaccount { id: string, name: string, users: number, minutes: number }
+type SubStatus = 'active' | 'inactive'
+interface Subaccount { id: string, name: string, users: number, minutes: number, status: SubStatus }
+
+// BFF: active/inactive (inferido por chamadas nos últimos 7d) → badge PT do protótipo.
+const ptStatus = (s: SubStatus) => (s === 'active' ? 'ativo' : 'inativo') as const
+function barClass(s: SubStatus) { return s === 'inactive' ? 'bg-neutral-300' : 'bg-primary' }
 interface Summary {
   subaccounts: number, usersTotal: number, active7d: number, inactive: number
   volumeMinutes: number, answerRate: number, callsInPeriod: number
@@ -13,9 +18,13 @@ const { user, bffFetch } = useAuth()
 const DAY = 86400000
 
 const search = ref('')
-// Status ainda não vem do backend — controle mantido como "Em Dev".
-const statusFilter = ref('all')
-const statusItems = [{ label: 'Status — Em Dev', value: 'all' }]
+// Status inferido pelo backend (ativa = chamada nos últimos 7 dias).
+const statusFilter = ref<'all' | SubStatus>('all')
+const statusItems = [
+  { label: 'Todos os status', value: 'all' },
+  { label: 'Ativo', value: 'active' },
+  { label: 'Inativo', value: 'inactive' }
+]
 const wizardOpen = ref(false)
 
 /* ----- dados do BFF ----- */
@@ -49,7 +58,10 @@ const maxMin = computed(() => Math.max(...subaccounts.value.map(s => s.minutes),
 
 const rows = computed(() => {
   const q = search.value.trim().toLowerCase()
-  return subaccounts.value.filter(s => !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q))
+  return subaccounts.value.filter(s =>
+    (!q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q))
+    && (statusFilter.value === 'all' || s.status === statusFilter.value)
+  )
 })
 
 const kpis = computed(() => {
@@ -118,8 +130,7 @@ function onCreated(s: Subconta) {
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
               <UInput v-model="search" icon="i-lucide-search" placeholder="Buscar por nome…" class="w-[190px]" />
-              <!-- Filtro de status mantido do protótipo; backend ainda não expõe status (Em Dev). -->
-              <USelect v-model="statusFilter" :items="statusItems" disabled class="w-[170px]" />
+              <USelect v-model="statusFilter" :items="statusItems" class="w-[170px]" />
               <UButton icon="i-lucide-plus" @click="wizardOpen = true">
                 Nova Subconta
                 <UBadge color="neutral" variant="subtle" size="xs" class="ml-1">Em Dev</UBadge>
@@ -135,9 +146,7 @@ function onCreated(s: Subconta) {
                 <th class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Nome da Subconta</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">ID</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Volumetria (mês)</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
-                  Status <UBadge color="neutral" variant="subtle" size="xs" class="ml-1 normal-case">Em Dev</UBadge>
-                </th>
+                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Status</th>
                 <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">Ações</th>
               </tr>
             </thead>
@@ -162,14 +171,17 @@ function onCreated(s: Subconta) {
                     <div class="mb-1.5 text-[13px] font-semibold">{{ fmt(s.minutes) }} min</div>
                     <div class="h-[5px] overflow-hidden rounded-full bg-muted">
                       <div
-                        class="h-full rounded-full bg-primary"
+                        class="h-full rounded-full"
+                        :class="barClass(s.status)"
                         :style="{ width: Math.max(6, Math.round((s.minutes / maxMin) * 100)) + '%' }"
                       />
                     </div>
                   </div>
                 </td>
                 <td class="px-3.5 py-3.5">
-                  <UBadge color="neutral" variant="subtle">Em Dev</UBadge>
+                  <UBadge :color="STATUS_BADGE[ptStatus(s.status)].color" variant="subtle">
+                    {{ STATUS_BADGE[ptStatus(s.status)].label }}
+                  </UBadge>
                 </td>
                 <td class="py-3.5 pl-3.5 pr-[22px] text-right">
                   <UButton
