@@ -17,14 +17,15 @@ const state = reactive({
   phone: ''
 })
 
-// Extrai a mensagem de erro do pbxapi (LoopBack: { error: { message, code } }).
+// Mensagem de erro do pbxapi (LoopBack: { error: { message, code } }).
 function translateError(e: unknown): string {
-  const data = (e as { data?: { error?: { message?: string, code?: string } } })?.data?.error
-  const code = data?.code
-  if (code === 'LOGIN_FAILED' || /login failed/i.test(data?.message || '')) return 'E-mail ou senha incorretos.'
-  if (code === 'LOGIN_FAILED_EMAIL_NOT_VERIFIED') return 'Confirme seu e-mail antes de entrar.'
-  if (code === 'EMAIL_NOT_FOUND') return 'E-mail não encontrado.'
-  return data?.message || (e instanceof Error ? e.message : 'Erro inesperado.')
+  const error = (e as { data?: { error?: { message?: string, code?: string } } })?.data?.error
+  if (error?.code === 'LOGIN_FAILED') return 'E-mail ou senha incorretos.'
+  if (error?.code === 'LOGIN_FAILED_EMAIL_NOT_VERIFIED') return 'Confirme seu e-mail antes de entrar.'
+  if (error?.code === 'EMAIL_NOT_FOUND') return 'E-mail não encontrado.'
+  if (error?.message) return error.message
+  if (e instanceof Error) return e.message
+  return 'Erro inesperado.'
 }
 
 async function onSubmit() {

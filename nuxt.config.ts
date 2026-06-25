@@ -10,10 +10,9 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      // Base do bff-portal (proxy fino). Todo tráfego do portal passa pelo BFF,
-      // que repassa ao pbxapi. O portal NUNCA fala direto com o pbxapi.
-      // URL em env porque difere em prod.
-      bffBase: process.env.BFF_BASE || 'http://localhost:7002'
+      // bffBase: login/signup. coreBase: refresh + dados pós-login (TEL-1979).
+      bffBase: process.env.BFF_BASE || 'http://localhost:7002',
+      coreBase: process.env.CORE_BASE || 'http://localhost:3003'
     }
   },
 

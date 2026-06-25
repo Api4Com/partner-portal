@@ -1,8 +1,4 @@
-/**
- * Roadmap de dupla linguagem — tipos, metadados e leitura do Supabase.
- * Lê do MESMO banco do portal Next (tabelas roadmap_* + RPCs com RLS).
- */
-
+// Roadmap de dupla linguagem — tipos e metadados.
 export type PartnerProfile = 'commercial' | 'technical'
 export type Horizon = 'now' | 'next' | 'future'
 export type ComplexityTag = 'new-api' | 'improvement' | 'breaking-change'
@@ -74,69 +70,3 @@ export const KPIS: KpiMeta[] = [
   { id: 'beta', label: 'Recursos em Beta Disponíveis', value: '6', icon: 'i-lucide-flask-conical' },
   { id: 'uptime', label: 'Chamadas de API (30d)', value: '42,7M', icon: 'i-lucide-activity' }
 ]
-
-/* ---------------------------------------------------------------- leitura */
-
-export interface ItemRow {
-  id: string
-  title: string
-  horizon: Horizon
-  tag: ComplexityTag
-  summary: string
-  commercial: CommercialContent
-  technical: TechnicalContent
-  published: boolean
-  sort_order: number
-}
-
-export function mapItem(r: ItemRow): RoadmapItem {
-  return {
-    id: r.id,
-    title: r.title,
-    horizon: r.horizon,
-    tag: r.tag,
-    summary: r.summary,
-    commercial: r.commercial,
-    technical: r.technical,
-    published: r.published,
-    sortOrder: r.sort_order
-  }
-}
-
-/**
- * Itens publicados + estado de interação do usuário.
- * `supabase` tipado como `any` enquanto não geramos database.types.ts.
- */
-export async function fetchRoadmapData(
-  supabase: any,
-  userId: string
-): Promise<{ items: RoadmapItem[], states: ItemStateMap }> {
-  const [{ data: itemsRaw }, { data: counts }, { data: myInterests }, { data: myBetas }] = await Promise.all([
-    supabase
-      .from('roadmap_items')
-      .select('*')
-      .eq('published', true)
-      .order('horizon', { ascending: true })
-      .order('sort_order', { ascending: true }),
-    supabase.rpc('roadmap_interest_counts'),
-    supabase.from('roadmap_interests').select('item_id').eq('user_id', userId),
-    supabase.from('roadmap_beta_requests').select('item_id').eq('user_id', userId)
-  ])
-
-  const countMap = new Map<string, number>(
-    ((counts ?? []) as { item_id: string, total: number }[]).map(c => [c.item_id, Number(c.total)])
-  )
-  const interestedSet = new Set(((myInterests ?? []) as { item_id: string }[]).map(r => r.item_id))
-  const betaSet = new Set(((myBetas ?? []) as { item_id: string }[]).map(r => r.item_id))
-
-  const items = ((itemsRaw as ItemRow[] | null) ?? []).map(mapItem)
-  const states: ItemStateMap = {}
-  for (const item of items) {
-    states[item.id] = {
-      interestCount: countMap.get(item.id) ?? 0,
-      interested: interestedSet.has(item.id),
-      betaRequested: betaSet.has(item.id)
-    }
-  }
-  return { items, states }
-}

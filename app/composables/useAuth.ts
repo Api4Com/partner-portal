@@ -1,21 +1,19 @@
-/**
- * Autenticação via bff-portal (proxy fino). Todo tráfego passa pelo BFF, que
- * repassa ao pbxapi (LoopBack) — o portal NUNCA fala direto com o pbxapi.
- * Os paths são repassados 1:1 pelo BFF:
- * - login: POST /users/login  { email, password } -> { id, ttl, created }
- * - signup: POST /accounts/signup { name, organization_name, email, password, phone }
- * - o token (id) vai no header `Authorization` (sem "Bearer") em toda request
- * - usuário atual: GET /users/me
- *
- * O token é guardado em cookie (SSR-safe) para o middleware conseguir ler.
- */
+// Login/signup passam pelo bff-portal → pbxapi; pós-login o portal fala direto
+// com o Core. O usuário atual vem das claims do access JWT (não há /users/me).
+export interface AccountContext {
+  currentCustomerId?: string
+  parentCustomerId?: string | null
+  accountType?: 'parent' | 'child' | 'standalone'
+  allowedCustomerIds?: string[]
+}
+
 export interface PbxUser {
   uuid: string
   name?: string
   email: string
-  phone?: string
   role?: string
-  status?: string
+  organizationId?: string
+  accountContext?: AccountContext
 }
 
 export interface SignupPayload {
@@ -26,35 +24,95 @@ export interface SignupPayload {
   phone: string
 }
 
-export function useAuth() {
-  const token = useCookie<string | null>('pbx_token', {
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 14 // 14 dias, igual ao ttl do pbxapi
-  })
-  const user = useState<PbxUser | null>('auth-user', () => null)
-  const base = useRuntimeConfig().public.bffBase
+interface TokenPair {
+  accessToken: string
+  refreshToken: string
+}
 
-  function api<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    return $fetch<T>(path, {
-      baseURL: base,
-      headers: token.value ? { Authorization: token.value } : {},
-      ...opts
-    })
+interface AccessClaims {
+  sub?: string
+  email?: string
+  name?: string
+  role?: string
+  organizationId?: string
+  accountContext?: AccountContext
+  exp?: number
+}
+
+function decodeJwt(token: string): AccessClaims | null {
+  try {
+    const part = token.split('.')[1]
+    if (!part) return null
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(
+      Array.prototype.map
+        .call(atob(b64), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    )
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+function isExpired(token: string): boolean {
+  const claims = decodeJwt(token)
+  if (!claims || typeof claims.exp !== 'number') return true
+  const clockSkewMs = 5000
+  return Date.now() >= claims.exp * 1000 - clockSkewMs
+}
+
+export function useAuth() {
+  const cookieOpts = { sameSite: 'lax' as const, path: '/', maxAge: 60 * 60 * 24 * 7 }
+  const accessToken = useCookie<string | null>('access_token', cookieOpts)
+  const refreshToken = useCookie<string | null>('refresh_token', cookieOpts)
+  const user = useState<PbxUser | null>('auth-user', () => null)
+
+  const config = useRuntimeConfig().public
+  const bffBase = config.bffBase
+  const coreBase = config.coreBase
+
+  function setTokens(tokens: TokenPair) {
+    accessToken.value = tokens.accessToken
+    refreshToken.value = tokens.refreshToken
+  }
+
+  function clearSession() {
+    accessToken.value = null
+    refreshToken.value = null
+    user.value = null
+  }
+
+  function hydrateFromToken() {
+    const claims = accessToken.value ? decodeJwt(accessToken.value) : null
+    if (!claims || !claims.sub || !claims.email) {
+      user.value = null
+      return
+    }
+    user.value = {
+      uuid: claims.sub,
+      email: claims.email,
+      name: claims.name,
+      role: claims.role,
+      organizationId: claims.organizationId,
+      accountContext: claims.accountContext
+    }
   }
 
   async function login(email: string, password: string) {
-    const tk = await api<{ id: string }>('/users/login', {
+    const tokens = await $fetch<TokenPair>('/users/login', {
+      baseURL: bffBase,
       method: 'POST',
       body: { email, password }
     })
-    token.value = tk.id
-    await fetchUser()
+    setTokens(tokens)
+    hydrateFromToken()
   }
 
-  // pbxapi não auto-loga no cadastro: devolve 201 e exige verificação de e-mail.
+  // pbxapi não auto-loga no cadastro: exige verificação de e-mail antes do login.
   async function signup(payload: SignupPayload) {
-    return api<{ status: number, message: string }>('/accounts/signup', {
+    return $fetch<{ status: number, message: string }>('/accounts/signup', {
+      baseURL: bffBase,
       method: 'POST',
       body: {
         name: payload.name,
@@ -66,30 +124,65 @@ export function useAuth() {
     })
   }
 
+  async function refresh(): Promise<boolean> {
+    if (!refreshToken.value) {
+      clearSession()
+      return false
+    }
+    try {
+      const tokens = await $fetch<TokenPair>('/auth/refresh', {
+        baseURL: coreBase,
+        method: 'POST',
+        body: { refreshToken: refreshToken.value }
+      })
+      setTokens(tokens)
+      hydrateFromToken()
+      return true
+    } catch {
+      clearSession()
+      return false
+    }
+  }
+
   async function fetchUser(): Promise<PbxUser | null> {
-    if (!token.value) {
+    if (!accessToken.value) {
       user.value = null
       return null
     }
-    try {
-      user.value = await api<PbxUser>('/users/me')
-    } catch {
-      // token inválido/expirado
-      token.value = null
-      user.value = null
+    if (isExpired(accessToken.value)) {
+      const ok = await refresh()
+      if (!ok) return null
+    } else {
+      hydrateFromToken()
     }
     return user.value
   }
 
   async function logout() {
-    try {
-      await api('/users/logout', { method: 'POST', body: { access_token: token.value } })
-    } catch {
-      // ignora erro de logout — limpa local de qualquer forma
-    }
-    token.value = null
-    user.value = null
+    // Revogação real é por tokenVersion no Core; aqui limpamos a sessão local.
+    clearSession()
   }
 
-  return { token, user, login, signup, fetchUser, logout }
+  // Em 401 tenta refresh uma vez antes de propagar o erro.
+  async function coreFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
+    if (accessToken.value && isExpired(accessToken.value)) await refresh()
+    const run = () => $fetch<T>(path, {
+      baseURL: coreBase,
+      ...opts,
+      headers: {
+        ...(opts.headers as Record<string, string> | undefined),
+        ...(accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {})
+      }
+    })
+    try {
+      return await run()
+    } catch (err) {
+      if ((err as { response?: { status?: number } })?.response?.status === 401 && await refresh()) {
+        return await run()
+      }
+      throw err
+    }
+  }
+
+  return { token: accessToken, refreshToken, user, login, signup, fetchUser, refresh, logout, coreFetch }
 }

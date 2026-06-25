@@ -16,15 +16,19 @@ const adminItems = [{ label: 'Admin', icon: 'i-lucide-shield', to: '/admin' }]
 
 const { data: isAdmin } = useIsAdmin()
 
-const userLabel = computed(
-  () => user.value?.name || user.value?.email || 'Parceiro'
-)
+const userLabel = computed(() => {
+  if (user.value?.name) return user.value.name
+  if (user.value?.email) return user.value.email
+  return 'Parceiro'
+})
 
 // Iniciais do usuário logado, derivadas do nome ou do e-mail.
 const userInitials = computed(() => {
-  const src = (user.value?.name || '').trim() || user.value?.email || ''
+  const name = user.value?.name?.trim()
+  const src = name ? name : (user.value?.email ?? '')
   const parts = src.replace(/[@._-]/g, ' ').split(/\s+/).filter(Boolean)
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'P'
+  const initials = ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase()
+  return initials ? initials : 'P'
 })
 
 // Produtos do workspace API4COM acessíveis pelo launcher (clique no logo).
