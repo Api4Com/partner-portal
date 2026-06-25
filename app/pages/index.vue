@@ -13,6 +13,9 @@ const { user, bffFetch } = useAuth()
 const DAY = 86400000
 
 const search = ref('')
+// Status ainda não vem do backend — controle mantido como "Em Dev".
+const statusFilter = ref('all')
+const statusItems = [{ label: 'Status — Em Dev', value: 'all' }]
 const wizardOpen = ref(false)
 
 /* ----- dados do BFF ----- */
@@ -57,18 +60,18 @@ const kpis = computed(() => {
   return [
     { label: 'Subcontas', icon: 'i-lucide-building-2', iconClass: 'bg-primary/10 text-primary', value: String(subaccounts.value.length), sub: 'subcontas na sua base' },
     {
-      label: 'Usuários ativos (7d)',
+      label: 'Ligando (últimos 7 dias)',
       icon: 'i-lucide-phone-call',
       iconClass: 'bg-emerald-50 text-emerald-600',
       value: `${active} de ${usersTotal}`,
-      sub: inactive > 0 ? `${inactive} sem ligar há +7 dias` : 'todos ligaram nos últimos 7 dias'
+      sub: inactive > 0 ? `${inactive} sem ligar nos últimos 7 dias` : 'todas ligaram nos últimos 7 dias'
     },
     { label: 'Volume do Mês', icon: 'i-lucide-activity', iconClass: 'bg-primary/10 text-primary', value: fmt(totalMinutes.value), sub: 'minutos · todas as subcontas' },
     { label: 'Taxa de atendimento', icon: 'i-lucide-phone-incoming', iconClass: 'bg-amber-50 text-amber-600', value: `${s?.answerRate ?? 0}%`, sub: 'chamadas atendidas · últimos 30 dias' }
   ]
 })
 
-// Subconta criada pelo wizard é prepended otimisticamente (sessão; sem POST no BFF ainda).
+// Subconta criada pelo wizard é prepended otimisticamente (sessão; criação real = Em Dev).
 function onCreated(s: Subconta) {
   subaccounts.value = [{ id: s.id, name: s.name, users: s.users ?? 0, minutes: s.minutes ?? 0 }, ...subaccounts.value]
   toast.add({ title: 'Subconta criada', description: s.name, icon: 'i-lucide-circle-check', color: 'success' })
@@ -115,19 +118,26 @@ function onCreated(s: Subconta) {
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
               <UInput v-model="search" icon="i-lucide-search" placeholder="Buscar por nome…" class="w-[190px]" />
-              <UButton icon="i-lucide-plus" @click="wizardOpen = true">Nova Subconta</UButton>
+              <!-- Filtro de status mantido do protótipo; backend ainda não expõe status (Em Dev). -->
+              <USelect v-model="statusFilter" :items="statusItems" disabled class="w-[170px]" />
+              <UButton icon="i-lucide-plus" @click="wizardOpen = true">
+                Nova Subconta
+                <UBadge color="neutral" variant="subtle" size="xs" class="ml-1">Em Dev</UBadge>
+              </UButton>
             </div>
           </div>
         </template>
 
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[680px] border-collapse">
+          <table class="w-full min-w-[720px] border-collapse">
             <thead>
               <tr class="bg-muted/50">
                 <th class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Nome da Subconta</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">ID</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Usuários</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Volumetria (mês)</th>
+                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                  Status <UBadge color="neutral" variant="subtle" size="xs" class="ml-1 normal-case">Em Dev</UBadge>
+                </th>
                 <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">Ações</th>
               </tr>
             </thead>
@@ -147,7 +157,6 @@ function onCreated(s: Subconta) {
                 <td class="px-3.5 py-3.5">
                   <span class="inline-block max-w-[180px] truncate rounded-md bg-muted px-2 py-1 align-middle font-mono text-xs text-muted">{{ s.id }}</span>
                 </td>
-                <td class="px-3.5 py-3.5 text-[13px] font-semibold">{{ fmt(s.users) }}</td>
                 <td class="px-3.5 py-3.5">
                   <div class="min-w-[130px]">
                     <div class="mb-1.5 text-[13px] font-semibold">{{ fmt(s.minutes) }} min</div>
@@ -158,6 +167,9 @@ function onCreated(s: Subconta) {
                       />
                     </div>
                   </div>
+                </td>
+                <td class="px-3.5 py-3.5">
+                  <UBadge color="neutral" variant="subtle">Em Dev</UBadge>
                 </td>
                 <td class="py-3.5 pl-3.5 pr-[22px] text-right">
                   <UButton
