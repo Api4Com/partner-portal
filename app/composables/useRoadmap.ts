@@ -1,9 +1,6 @@
 import type { ItemStateMap, PartnerProfile, RoadmapItem } from '~/lib/roadmap'
 
-/**
- * Estado + ações do Roadmap, compartilhados via useState (SSR-safe).
- * Mutações de interesse/beta vão direto ao Supabase (RLS), com update otimista.
- */
+// Estado + ações do Roadmap, compartilhados via useState (SSR-safe).
 export function useRoadmap() {
   const toast = useToast()
 
@@ -11,7 +8,6 @@ export function useRoadmap() {
   const states = useState<ItemStateMap>('rm-states', () => ({}))
   const activeItemId = useState<string | null>('rm-active', () => null)
   const profile = useState<PartnerProfile>('rm-profile', () => 'commercial')
-  const pending = useState<boolean>('rm-pending', () => false)
 
   const activeItem = computed(() => items.value.find(i => i.id === activeItemId.value) ?? null)
 
@@ -60,7 +56,6 @@ export function useRoadmap() {
     activeItemId,
     activeItem,
     profile,
-    pending,
     openItem,
     closeItem,
     toggleInterest,

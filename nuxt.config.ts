@@ -10,8 +10,9 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      // Base do pbxapi (LoopBack). Igual ao api4com-portal: .../api
-      pbxApiBase: process.env.PBX_API_BASE || 'http://localhost:3000/api'
+      // bffBase: login/signup. coreBase: refresh + dados pós-login (TEL-1979).
+      bffBase: process.env.BFF_BASE || 'http://localhost:7002',
+      coreBase: process.env.CORE_BASE || 'http://localhost:3003'
     }
   },
 

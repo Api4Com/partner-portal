@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import { KPIS, type PartnerProfile } from '~/lib/roadmap'
 
-const { items, states, profile } = useRoadmap()
-
-// TODO: itens do roadmap vinham do Supabase (fetchRoadmapData). Sem backend
-// equivalente ainda, a lista fica vazia até migrarmos a fonte de dados.
-watchEffect(() => {
-  items.value = []
-  states.value = {}
-})
+// TODO: itens do roadmap vinham do Supabase. Sem backend equivalente ainda, a
+// lista fica vazia (estado inicial de useRoadmap) até migrarmos a fonte de dados.
+const { items, profile } = useRoadmap()
 
 const profiles: { id: PartnerProfile, label: string, hint: string, icon: string }[] = [
   { id: 'commercial', label: 'Comercial / Vendas', hint: 'Vendas', icon: 'i-lucide-briefcase' },
