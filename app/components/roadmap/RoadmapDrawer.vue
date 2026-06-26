@@ -5,16 +5,15 @@ const {
   activeItem,
   activeItemId,
   closeItem,
-  profile,
   states,
   react
 } = useRoadmap()
 
-const tab = ref<PartnerProfile>(profile.value)
+const tab = ref<PartnerProfile>('commercial')
 
-// Ao abrir um item, alinha a aba inicial com o perfil ativo.
+// Ao abrir um item, volta para a aba Comercial.
 watch(activeItemId, (id) => {
-  if (id) tab.value = profile.value
+  if (id) tab.value = 'commercial'
 })
 
 const open = computed({

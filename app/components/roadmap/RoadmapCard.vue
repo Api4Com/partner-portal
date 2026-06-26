@@ -3,14 +3,13 @@ import type { RoadmapItem } from '~/lib/roadmap'
 
 const props = defineProps<{ item: RoadmapItem }>()
 
-const { profile, states, myComments, openItem, react } = useRoadmap()
+const { states, myComments, openItem, react } = useRoadmap()
 
 const state = computed(() => states.value[props.item.id])
 const likeCount = computed(() => state.value?.likeCount ?? 0)
 const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
 const myReaction = computed(() => state.value?.myReaction ?? null)
 const myCommentCount = computed(() => myComments.value[props.item.id]?.length ?? 0)
-const techFileCount = computed(() => props.item.technical.files.length)
 </script>
 
 <template>
@@ -28,7 +27,7 @@ const techFileCount = computed(() => props.item.technical.files.length)
     </div>
 
     <p class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted">
-      {{ profile === 'commercial' ? item.commercial.headline : item.technical.impactSummary }}
+      {{ item.commercial.headline }}
     </p>
 
     <div class="mt-3 flex items-center justify-between border-t border-default pt-3">
@@ -70,11 +69,7 @@ const techFileCount = computed(() => props.item.technical.files.length)
         </span>
       </div>
 
-      <span v-if="profile === 'technical'" class="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
-        <UIcon name="i-lucide-paperclip" class="h-3.5 w-3.5" />
-        {{ techFileCount }} arquivo{{ techFileCount === 1 ? '' : 's' }}
-      </span>
-      <span v-else class="inline-flex items-center gap-1 text-xs font-medium text-primary">
+      <span class="inline-flex items-center gap-1 text-xs font-medium text-primary">
         Ver detalhes <UIcon name="i-lucide-arrow-up-right" class="h-3.5 w-3.5" />
       </span>
     </div>

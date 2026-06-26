@@ -1,4 +1,4 @@
-import type { CommentMap, ItemStateMap, PartnerProfile, Reaction, RoadmapComment, RoadmapItem } from '~/lib/roadmap'
+import type { CommentMap, ItemStateMap, Reaction, RoadmapComment, RoadmapItem } from '~/lib/roadmap'
 
 /**
  * Estado + ações do Roadmap, compartilhados via useState (SSR-safe).
@@ -13,7 +13,6 @@ export function useRoadmap() {
   const states = useState<ItemStateMap>('rm-states', () => ({}))
   const myComments = useState<CommentMap>('rm-comments', () => ({}))
   const activeItemId = useState<string | null>('rm-active', () => null)
-  const profile = useState<PartnerProfile>('rm-profile', () => 'commercial')
   const pending = useState<boolean>('rm-pending', () => false)
 
   const activeItem = computed(() => items.value.find(i => i.id === activeItemId.value) ?? null)
@@ -148,7 +147,6 @@ export function useRoadmap() {
     myComments,
     activeItemId,
     activeItem,
-    profile,
     pending,
     openItem,
     closeItem,

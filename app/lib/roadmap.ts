@@ -45,18 +45,11 @@ export type CommentMap = Record<string, RoadmapComment[]>
 
 /* ---------------------------------------------------------------- metadados */
 
-export interface HorizonMeta { id: Horizon, title: string, caption: string, accent: string }
+export interface HorizonMeta { id: Horizon, title: string }
 
 export const HORIZONS: HorizonMeta[] = [
-  { id: 'now', title: 'Em desenvolvimento agora', caption: 'O que o time já está construindo', accent: 'from-emerald-50 to-white text-emerald-700 ring-emerald-200' },
-  { id: 'radar', title: 'No radar', caption: 'Um espaço aberto pra explorar possibilidades', accent: 'from-amber-50 to-white text-amber-700 ring-amber-200' }
-]
-
-export interface KpiMeta { id: string, label: string, value: string, icon: string }
-export const KPIS: KpiMeta[] = [
-  { id: 'integrations', label: 'Integrações Ativas', value: '1.284', icon: 'i-lucide-plug' },
-  { id: 'beta', label: 'Recursos em Beta Disponíveis', value: '6', icon: 'i-lucide-flask-conical' },
-  { id: 'uptime', label: 'Chamadas de API (30d)', value: '42,7M', icon: 'i-lucide-activity' }
+  { id: 'now', title: 'Em desenvolvimento agora' },
+  { id: 'radar', title: 'No radar' }
 ]
 
 /* ---------------------------------------------------------------- leitura */
