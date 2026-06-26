@@ -67,7 +67,7 @@ function toggleMode() {
 const HIGHLIGHTS = [
   'Painel de subcontas, usuários e consumo',
   'Relatórios de chamadas com export e gravações',
-  'Roadmap e acesso antecipado aos betas'
+  'Roadmap de produto: vote e comente as próximas entregas'
 ]
 
 // Animação "typewriter" no logotipo API4COM — troca a terminação "COM".
