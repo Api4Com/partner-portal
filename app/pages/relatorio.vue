@@ -192,29 +192,27 @@ async function loadCalls() {
 }
 
 /**
- * Usuários do escopo sem chamada no período (toggle). lastCall é a última
- * chamada (geral); "sem chamada no período" = lastCall ausente ou anterior ao
- * início do período.
+ * Usuários do escopo sem chamada no período (toggle). Passa `from/to` ao
+ * endpoint → o `lastCall` vem recortado pelo período, então "sem chamada no
+ * período" = `lastCall` ausente (exato, inclusive com `to` no passado).
  */
 async function loadNoCalls() {
   if (!includeNoCalls.value) {
     noCallRows.value = []
     return
   }
-  const fromMs = range.value.from ? new Date(range.value.from).getTime() : 0
   const q = search.value.trim().toLowerCase()
   const rows: ReportRow[] = []
   for (const s of scopeSubs.value) {
     let users: SubUser[] = []
     try {
-      const r = await bffFetch<{ data: SubUser[] }>(`/subaccounts/${s.id}/users`, { query: { limit: 1000 } })
+      const r = await bffFetch<{ data: SubUser[] }>(`/subaccounts/${s.id}/users`, { query: { limit: 1000, ...range.value } })
       users = r.data ?? []
     } catch {
       users = []
     }
     for (const u of users) {
-      const last = u.lastCall ? new Date(u.lastCall).getTime() : 0
-      if (last && last >= fromMs) continue // ligou no período
+      if (u.lastCall) continue // teve chamada NO PERÍODO
       if (q && !u.name.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) continue
       rows.push({
         id: `nocall-${s.id}-${u.id}`,

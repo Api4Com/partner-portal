@@ -78,7 +78,7 @@ const kpis = computed(() => {
       value: `${active} de ${usersTotal}`,
       sub: inactive > 0 ? `${inactive} sem ligar nos últimos 7 dias` : 'todas ligaram nos últimos 7 dias'
     },
-    { label: 'Volume do Mês', icon: 'i-lucide-activity', iconClass: 'bg-primary/10 text-primary', value: fmt(totalMinutes.value), sub: 'minutos · todas as subcontas' },
+    { label: 'Volume', icon: 'i-lucide-activity', iconClass: 'bg-primary/10 text-primary', value: fmt(totalMinutes.value), sub: 'minutos · últimos 30 dias' },
     { label: 'Taxa de atendimento', icon: 'i-lucide-phone-incoming', iconClass: 'bg-amber-50 text-amber-600', value: `${s?.answerRate ?? 0}%`, sub: 'chamadas atendidas · últimos 30 dias' }
   ]
 })
@@ -135,7 +135,6 @@ async function onCreated(s: Subaccount) {
               <USelect v-model="statusFilter" :items="statusItems" class="w-[170px]" />
               <UButton icon="i-lucide-plus" @click="wizardOpen = true">
                 Nova Subconta
-                <UBadge color="neutral" variant="subtle" size="xs" class="ml-1">Em Dev</UBadge>
               </UButton>
             </div>
           </div>
@@ -146,8 +145,7 @@ async function onCreated(s: Subaccount) {
             <thead>
               <tr class="bg-muted/50">
                 <th class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Nome da Subconta</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">ID</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Volumetria (mês)</th>
+                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Volumetria (30 dias)</th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Status</th>
                 <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">Ações</th>
               </tr>
@@ -164,9 +162,6 @@ async function onCreated(s: Subaccount) {
                     </div>
                     <span class="text-[13px] font-semibold">{{ s.name }}</span>
                   </div>
-                </td>
-                <td class="px-3.5 py-3.5">
-                  <span class="inline-block max-w-[180px] truncate rounded-md bg-muted px-2 py-1 align-middle font-mono text-xs text-muted">{{ s.id }}</span>
                 </td>
                 <td class="px-3.5 py-3.5">
                   <div class="min-w-[130px]">
@@ -198,7 +193,7 @@ async function onCreated(s: Subaccount) {
                 </td>
               </tr>
               <tr v-if="rows.length === 0" class="border-t border-default">
-                <td colspan="5" class="px-[22px] py-10 text-center text-sm text-dimmed">
+                <td colspan="4" class="px-[22px] py-10 text-center text-sm text-dimmed">
                   {{ loading ? 'Carregando…' : 'Nenhuma subconta encontrada com os filtros aplicados.' }}
                 </td>
               </tr>
