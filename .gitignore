@@ -25,3 +25,6 @@ logs
 
 # Vercel
 .vercel
+
+# Docs de handoff (local, não versionado)
+docs/
