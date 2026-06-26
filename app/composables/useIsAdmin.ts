@@ -10,5 +10,11 @@ export function useIsAdmin() {
     if (!user.value) return false
     const { data } = await (supabase as any).rpc('roadmap_is_admin')
     return data === true
+  }, {
+    // Resolve no cliente (sessão garantida) e reavalia quando o usuário entra/sai —
+    // evita cachear `false` quando o SSR roda antes da sessão existir.
+    server: false,
+    default: () => false,
+    watch: [user]
   })
 }

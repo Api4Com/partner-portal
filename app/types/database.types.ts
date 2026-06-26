@@ -108,7 +108,7 @@ export type Database = {
           published: boolean
           sort_order: number
           summary: string
-          tag: string
+          tag: string | null
           technical: Json
           title: string
           updated_at: string
@@ -121,7 +121,7 @@ export type Database = {
           published?: boolean
           sort_order?: number
           summary: string
-          tag: string
+          tag?: string | null
           technical: Json
           title: string
           updated_at?: string
@@ -134,7 +134,7 @@ export type Database = {
           published?: boolean
           sort_order?: number
           summary?: string
-          tag?: string
+          tag?: string | null
           technical?: Json
           title?: string
           updated_at?: string

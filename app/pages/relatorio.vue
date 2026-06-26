@@ -313,7 +313,6 @@ function exportCsv() {
       <!-- Cabeçalho -->
       <div class="mb-[22px] flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p class="mb-1.5 text-xs font-semibold tracking-wide text-primary">Portal do Parceiro</p>
           <h1 class="mb-1 text-2xl font-bold tracking-tight sm:text-3xl">Relatório de chamadas</h1>
           <p class="text-sm text-muted">Detalhamento de chamadas por subconta · KPIs e listagem com exportação</p>
         </div>

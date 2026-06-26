@@ -1,42 +1,43 @@
-import { mapItem, type ItemRow, type ItemStateMap, type RoadmapItem } from '~/lib/roadmap'
+import { mapItem, type ItemRow, type ItemStateMap, type Reaction, type RoadmapItem } from '~/lib/roadmap'
 
-export interface AdminInterest {
+export interface AdminReaction {
   itemId: string
   itemTitle: string
   email: string
   company: string
+  reaction: Reaction
   createdAt: string
 }
 
-export interface AdminBeta {
+export interface AdminComment {
   id: string
   itemId: string
   itemTitle: string
   email: string
   company: string
-  status: 'requested' | 'approved' | 'rejected'
+  body: string
   createdAt: string
 }
 
 export interface AdminData {
   items: RoadmapItem[]
   states: ItemStateMap
-  interests: AdminInterest[]
-  betas: AdminBeta[]
+  reactions: AdminReaction[]
+  comments: AdminComment[]
 }
 
-/** Todos os itens (inclui rascunhos) + leads + betas + contagem. RLS exige admin. */
+/** Todos os itens (inclui rascunhos) + reações + comentários + contagem. RLS exige admin. */
 export async function fetchAdminData(supabase: any): Promise<AdminData> {
-  const [itemsRes, interestsRes, betasRes, profilesRes, countsRes] = await Promise.all([
+  const [itemsRes, interestsRes, commentsRes, profilesRes, countsRes] = await Promise.all([
     supabase
       .from('roadmap_items')
       .select('*')
       .order('horizon', { ascending: true })
       .order('sort_order', { ascending: true }),
-    supabase.from('roadmap_interests').select('item_id, user_id, created_at'),
-    supabase.from('roadmap_beta_requests').select('id, item_id, user_id, status, created_at'),
+    supabase.from('roadmap_interests').select('item_id, user_id, reaction, created_at'),
+    supabase.from('roadmap_comments').select('id, item_id, user_id, body, created_at').order('created_at', { ascending: false }),
     supabase.from('roadmap_profiles').select('id, email, company'),
-    supabase.rpc('roadmap_interest_counts')
+    supabase.rpc('roadmap_reaction_counts')
   ])
 
   const items = ((itemsRes.data as ItemRow[] | null) ?? []).map(mapItem)
@@ -46,37 +47,40 @@ export async function fetchAdminData(supabase: any): Promise<AdminData> {
       .map(p => [p.id, { email: p.email ?? '—', company: p.company ?? '' }])
   )
 
-  const interests: AdminInterest[] = (
-    (interestsRes.data as { item_id: string, user_id: string, created_at: string }[] | null) ?? []
+  const reactions: AdminReaction[] = (
+    (interestsRes.data as { item_id: string, user_id: string, reaction: Reaction, created_at: string }[] | null) ?? []
   ).map(r => ({
     itemId: r.item_id,
     itemTitle: titleOf.get(r.item_id) ?? r.item_id,
     email: profiles.get(r.user_id)?.email ?? '—',
     company: profiles.get(r.user_id)?.company ?? '',
+    reaction: r.reaction,
     createdAt: r.created_at
   }))
 
-  const betas: AdminBeta[] = (
-    (betasRes.data as { id: string, item_id: string, user_id: string, status: AdminBeta['status'], created_at: string }[] | null) ?? []
+  const comments: AdminComment[] = (
+    (commentsRes.data as { id: string, item_id: string, user_id: string, body: string, created_at: string }[] | null) ?? []
   ).map(r => ({
     id: r.id,
     itemId: r.item_id,
     itemTitle: titleOf.get(r.item_id) ?? r.item_id,
     email: profiles.get(r.user_id)?.email ?? '—',
     company: profiles.get(r.user_id)?.company ?? '',
-    status: r.status,
+    body: r.body,
     createdAt: r.created_at
   }))
 
-  const countMap = new Map<string, number>(
-    ((countsRes.data as { item_id: string, total: number }[] | null) ?? []).map(c => [c.item_id, Number(c.total)])
+  const countMap = new Map<string, { likes: number, dislikes: number }>(
+    ((countsRes.data as { item_id: string, likes: number, dislikes: number }[] | null) ?? [])
+      .map(c => [c.item_id, { likes: Number(c.likes), dislikes: Number(c.dislikes) }])
   )
   const states: ItemStateMap = {}
   for (const item of items) {
-    states[item.id] = { interestCount: countMap.get(item.id) ?? 0, interested: false, betaRequested: false }
+    const c = countMap.get(item.id)
+    states[item.id] = { likeCount: c?.likes ?? 0, dislikeCount: c?.dislikes ?? 0, myReaction: null }
   }
 
-  return { items, states, interests, betas }
+  return { items, states, reactions, comments }
 }
 
 /** Gera um slug a partir do título (igual ao server action do portal Next). */
