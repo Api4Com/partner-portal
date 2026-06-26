@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { HORIZONS, type RoadmapItem } from '~/lib/roadmap'
-import { fmtDate, type AdminData } from '~/lib/admin'
+import { fmtDate, type AdminData, type AdminRequest } from '~/lib/admin'
 
 const props = defineProps<{ data: AdminData, userEmail: string }>()
 
 const supabase = useSupabaseClient()
 const toast = useToast()
 
-type Tab = 'roadmap' | 'feedback'
+type Tab = 'roadmap' | 'feedback' | 'requests'
 const tab = ref<Tab>('roadmap')
+
+// Demandas enviadas pelos parceiros.
+const pendingRequests = computed(() => props.data.requests.filter(r => !r.archived))
 
 const editorOpen = ref(false)
 const editing = ref<RoadmapItem | null>(null)
@@ -23,7 +26,8 @@ const publishedCount = computed(() => props.data.items.filter(i => i.published).
 
 const tabs = computed<{ id: Tab, label: string, icon: string }[]>(() => [
   { id: 'roadmap', label: 'Roadmap', icon: 'i-lucide-layout-grid' },
-  { id: 'feedback', label: `Feedback (${props.data.reactions.length + props.data.comments.length})`, icon: 'i-lucide-message-square-text' }
+  { id: 'feedback', label: `Feedback (${props.data.reactions.length + props.data.comments.length})`, icon: 'i-lucide-message-square-text' },
+  { id: 'requests', label: `Solicitação (${pendingRequests.value.length})`, icon: 'i-lucide-lightbulb' }
 ])
 
 // Feed global cronológico: reações + comentários de todos os itens.
@@ -76,6 +80,21 @@ async function removeItem(item: RoadmapItem) {
   const { error } = await (supabase as any).from('roadmap_items').delete().eq('id', item.id)
   if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
   toast.add({ title: 'Item excluído.', color: 'success', icon: 'i-lucide-circle-check' })
+  await refresh()
+}
+
+async function toggleArchive(req: AdminRequest) {
+  const { error } = await (supabase as any).from('roadmap_requests').update({ archived: !req.archived }).eq('id', req.id)
+  if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
+  toast.add({ title: req.archived ? 'Demanda reativada.' : 'Demanda arquivada.', color: 'success', icon: 'i-lucide-circle-check' })
+  await refresh()
+}
+
+async function removeRequest(req: AdminRequest) {
+  if (!window.confirm(`Excluir a demanda "${req.title}"? Esta ação não pode ser desfeita.`)) return
+  const { error } = await (supabase as any).from('roadmap_requests').delete().eq('id', req.id)
+  if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
+  toast.add({ title: 'Demanda excluída.', color: 'success', icon: 'i-lucide-circle-check' })
   await refresh()
 }
 
@@ -206,7 +225,7 @@ async function onSaved() {
       </div>
 
       <!-- FEEDBACK (feed global: reações + comentários) -->
-      <div v-else class="overflow-hidden rounded-2xl border border-default bg-default">
+      <div v-else-if="tab === 'feedback'" class="overflow-hidden rounded-2xl border border-default bg-default">
         <p v-if="feed.length === 0" class="px-4 py-8 text-center text-sm text-dimmed">
           Nenhuma reação ou comentário ainda.
         </p>
@@ -241,6 +260,55 @@ async function onSaved() {
             <span class="shrink-0 text-xs text-dimmed">{{ fmtDate(entry.createdAt) }}</span>
           </li>
         </ul>
+      </div>
+
+      <!-- DEMANDAS (solicitações enviadas pelos parceiros) -->
+      <div v-else class="space-y-3">
+        <p v-if="data.requests.length === 0" class="rounded-2xl border border-default bg-default px-4 py-8 text-center text-sm text-dimmed">
+          Nenhuma demanda recebida ainda.
+        </p>
+        <div
+          v-for="req in data.requests"
+          :key="req.id"
+          class="rounded-2xl border border-default bg-default p-4"
+          :class="req.archived ? 'opacity-60' : ''"
+        >
+          <div class="flex items-start gap-3">
+            <span class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-600">
+              <UIcon name="i-lucide-lightbulb" class="h-4.5 w-4.5" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-sm font-semibold">{{ req.title }}</h3>
+                <UBadge v-if="req.archived" color="neutral" variant="subtle" size="sm">arquivada</UBadge>
+              </div>
+              <p class="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-muted">{{ req.description }}</p>
+              <p class="mt-2 text-xs text-dimmed">
+                <span class="font-medium text-muted">{{ req.email }}</span>
+                <span v-if="req.company"> · {{ req.company }}</span>
+                <span> · {{ fmtDate(req.createdAt) }}</span>
+              </p>
+            </div>
+            <div class="flex shrink-0 items-center gap-1">
+              <UButton
+                :icon="req.archived ? 'i-lucide-archive-restore' : 'i-lucide-archive'"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :title="req.archived ? 'Reativar' : 'Arquivar'"
+                @click="toggleArchive(req)"
+              />
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                size="sm"
+                title="Excluir"
+                @click="removeRequest(req)"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

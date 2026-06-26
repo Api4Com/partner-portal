@@ -23,6 +23,9 @@ watchEffect(() => {
 const nowItems = computed(() => items.value.filter(i => i.horizon === 'now'))
 // Caixa de ideias no radar: "próximo" + "futuro" juntos, sem ordem de prioridade.
 const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
+
+// Modal de "Solicitar demanda".
+const requestOpen = ref(false)
 </script>
 
 <template>
@@ -32,9 +35,19 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
     <div class="mx-auto max-w-[1240px] space-y-8">
       <!-- Dashboard -->
       <section class="space-y-5">
-        <div class="flex flex-col gap-1">
-          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Construindo junto com você</h1>
-          <p class="max-w-2xl text-sm text-muted">Este é um espaço aberto pra explorar possibilidades junto com você. Vote nas ideias que importam, sugira o que está faltando e ajude a moldar pra onde o produto pode crescer.</p>
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div class="flex flex-col gap-1">
+            <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Construindo junto com você</h1>
+            <p class="max-w-2xl text-sm text-muted">Este é um espaço aberto pra explorar possibilidades junto com você. Vote nas ideias que importam, sugira o que está faltando e ajude a moldar pra onde o produto pode crescer.</p>
+          </div>
+          <UButton
+            icon="i-lucide-lightbulb"
+            size="lg"
+            class="shrink-0"
+            @click="requestOpen = true"
+          >
+            Solicitar demanda
+          </UButton>
         </div>
       </section>
 
@@ -92,4 +105,5 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
   </div>
 
   <RoadmapDrawer />
+  <RoadmapRequestModal v-model:open="requestOpen" />
 </template>

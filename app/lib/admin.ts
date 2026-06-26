@@ -19,16 +19,27 @@ export interface AdminComment {
   createdAt: string
 }
 
+export interface AdminRequest {
+  id: string
+  email: string
+  company: string
+  title: string
+  description: string
+  archived: boolean
+  createdAt: string
+}
+
 export interface AdminData {
   items: RoadmapItem[]
   states: ItemStateMap
   reactions: AdminReaction[]
   comments: AdminComment[]
+  requests: AdminRequest[]
 }
 
 /** Todos os itens (inclui rascunhos) + reações + comentários + contagem. RLS exige admin. */
 export async function fetchAdminData(supabase: any): Promise<AdminData> {
-  const [itemsRes, interestsRes, commentsRes, profilesRes, countsRes] = await Promise.all([
+  const [itemsRes, interestsRes, commentsRes, profilesRes, countsRes, requestsRes] = await Promise.all([
     supabase
       .from('roadmap_items')
       .select('*')
@@ -37,7 +48,8 @@ export async function fetchAdminData(supabase: any): Promise<AdminData> {
     supabase.from('roadmap_interests').select('item_id, user_id, reaction, created_at'),
     supabase.from('roadmap_comments').select('id, item_id, user_id, body, created_at').order('created_at', { ascending: false }),
     supabase.from('roadmap_profiles').select('id, email, company'),
-    supabase.rpc('roadmap_reaction_counts')
+    supabase.rpc('roadmap_reaction_counts'),
+    supabase.from('roadmap_requests').select('id, user_id, title, description, archived, created_at').order('created_at', { ascending: false })
   ])
 
   const items = ((itemsRes.data as ItemRow[] | null) ?? []).map(mapItem)
@@ -80,7 +92,19 @@ export async function fetchAdminData(supabase: any): Promise<AdminData> {
     states[item.id] = { likeCount: c?.likes ?? 0, dislikeCount: c?.dislikes ?? 0, myReaction: null }
   }
 
-  return { items, states, reactions, comments }
+  const requests: AdminRequest[] = (
+    (requestsRes.data as { id: string, user_id: string, title: string, description: string, archived: boolean, created_at: string }[] | null) ?? []
+  ).map(r => ({
+    id: r.id,
+    email: profiles.get(r.user_id)?.email ?? '—',
+    company: profiles.get(r.user_id)?.company ?? '',
+    title: r.title,
+    description: r.description,
+    archived: r.archived,
+    createdAt: r.created_at
+  }))
+
+  return { items, states, reactions, comments, requests }
 }
 
 /** Gera um slug a partir do título (igual ao server action do portal Next). */
