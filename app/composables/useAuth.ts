@@ -24,9 +24,11 @@ export interface SignupPayload {
   phone: string
 }
 
-interface TokenPair {
+// O refresh token não é mais manipulado pelo JS: o BFF o guarda num cookie
+// httpOnly (setado no login) e o lê em POST /auth/refresh. O front só recebe/usa
+// o access token. Por isso o login/refresh retornam apenas `{ accessToken }`.
+interface AccessTokenResponse {
   accessToken: string
-  refreshToken: string
 }
 
 interface AccessClaims {
@@ -65,21 +67,18 @@ function isExpired(token: string): boolean {
 export function useAuth() {
   const cookieOpts = { sameSite: 'lax' as const, path: '/', maxAge: 60 * 60 * 24 * 7 }
   const accessToken = useCookie<string | null>('access_token', cookieOpts)
-  const refreshToken = useCookie<string | null>('refresh_token', cookieOpts)
   const user = useState<PbxUser | null>('auth-user', () => null)
 
   const config = useRuntimeConfig().public
   const bffBase = config.bffBase
   const coreBase = config.coreBase
 
-  function setTokens(tokens: TokenPair) {
-    accessToken.value = tokens.accessToken
-    refreshToken.value = tokens.refreshToken
+  function setAccessToken(token: string) {
+    accessToken.value = token
   }
 
   function clearSession() {
     accessToken.value = null
-    refreshToken.value = null
     user.value = null
   }
 
@@ -100,12 +99,15 @@ export function useAuth() {
   }
 
   async function login(email: string, password: string) {
-    const tokens = await $fetch<TokenPair>('/users/login', {
+    // `credentials: 'include'` para que o Set-Cookie httpOnly do refresh (emitido
+    // pelo BFF) seja armazenado pelo browser. O front só lê/guarda o access.
+    const { accessToken: token } = await $fetch<AccessTokenResponse>('/users/login', {
       baseURL: bffBase,
       method: 'POST',
+      credentials: 'include',
       body: { email, password }
     })
-    setTokens(tokens)
+    setAccessToken(token)
     hydrateFromToken()
   }
 
@@ -125,17 +127,16 @@ export function useAuth() {
   }
 
   async function refresh(): Promise<boolean> {
-    if (!refreshToken.value) {
-      clearSession()
-      return false
-    }
+    // O refresh token vive num cookie httpOnly gerenciado pelo BFF; o JS não o
+    // acessa. `credentials: 'include'` faz o browser enviá-lo automaticamente.
+    // A renovação passa pelo BFF (não mais direto no Core) e devolve só o access.
     try {
-      const tokens = await $fetch<TokenPair>('/auth/refresh', {
-        baseURL: coreBase,
+      const { accessToken: token } = await $fetch<AccessTokenResponse>('/auth/refresh', {
+        baseURL: bffBase,
         method: 'POST',
-        body: { refreshToken: refreshToken.value }
+        credentials: 'include'
       })
-      setTokens(tokens)
+      setAccessToken(token)
       hydrateFromToken()
       return true
     } catch {
@@ -159,7 +160,19 @@ export function useAuth() {
   }
 
   async function logout() {
-    // Revogação real é por tokenVersion no Core; aqui limpamos a sessão local.
+    // Pede ao BFF para expirar o cookie httpOnly do refresh (best-effort);
+    // `credentials: 'include'` envia o cookie para que o BFF possa limpá-lo.
+    // Revogação real é por tokenVersion no Core; aqui garantimos a sessão local.
+    try {
+      await $fetch('/users/logout', {
+        baseURL: bffBase,
+        method: 'POST',
+        credentials: 'include',
+        headers: accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {}
+      })
+    } catch {
+      // ignorado: o logout local abaixo é o que importa para o cliente.
+    }
     clearSession()
   }
 
@@ -190,9 +203,10 @@ export function useAuth() {
   }
 
   // Bearer JWT do Core no BFF (subaccounts/calls/reports — escopo via accountContext).
+  // `credentials: 'include'` acompanha o cookie httpOnly de sessão quando o BFF precisar.
   function bffFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    return authedFetch<T>(bffBase, path, opts)
+    return authedFetch<T>(bffBase, path, { credentials: 'include', ...opts })
   }
 
-  return { token: accessToken, refreshToken, user, login, signup, fetchUser, refresh, logout, coreFetch, bffFetch }
+  return { token: accessToken, user, login, signup, fetchUser, refresh, logout, coreFetch, bffFetch }
 }
