@@ -8,9 +8,10 @@ const operacao = [
   { label: 'Roadmap', icon: 'i-lucide-map', to: '/roadmap' },
   { label: 'Relatórios', icon: 'i-lucide-chart-column', to: '/relatorio' }
 ]
-const plataforma = [
-  { label: 'Playbook', icon: 'i-lucide-cable', disabled: true }
-]
+// Seção Playbook oculta por enquanto (será construída em alguns meses).
+// const plataforma = [
+//   { label: 'Playbook', icon: 'i-lucide-cable', disabled: true }
+// ]
 const adminItems = [{ label: 'Admin', icon: 'i-lucide-shield', to: '/admin' }]
 
 const { data: isAdmin } = useIsAdmin()
@@ -119,10 +120,11 @@ async function logout() {
       </p>
       <UNavigationMenu orientation="vertical" :items="operacao" />
 
-      <p class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+      <!-- Seção Playbook oculta por enquanto (será construída em alguns meses). -->
+      <!-- <p class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-dimmed">
         Plataforma
       </p>
-      <UNavigationMenu orientation="vertical" :items="plataforma" />
+      <UNavigationMenu orientation="vertical" :items="plataforma" /> -->
 
       <template v-if="isAdmin">
         <p class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-dimmed">

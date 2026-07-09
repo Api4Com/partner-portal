@@ -10,13 +10,23 @@ const likeCount = computed(() => state.value?.likeCount ?? 0)
 const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
 const myReaction = computed(() => state.value?.myReaction ?? null)
 const myCommentCount = computed(() => myComments.value[props.item.id]?.length ?? 0)
+
+// Itens do radar ganham cara de "rascunho" (borda tracejada, tom lavado):
+// comunica visualmente que é possibilidade, não compromisso.
+const isRadar = computed(() => props.item.horizon !== 'now')
+const shellClass = computed(() =>
+  isRadar.value
+    ? 'border-dashed border-amber-200 bg-amber-50/30 shadow-none hover:border-amber-400'
+    : 'border-default bg-default shadow-sm hover:border-brand-300 hover:shadow-lg'
+)
 </script>
 
 <template>
   <div
     role="button"
     tabindex="0"
-    class="group w-full cursor-pointer rounded-2xl border border-default bg-default p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+    class="group w-full cursor-pointer rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+    :class="shellClass"
     @click="openItem(item.id)"
     @keydown.enter.prevent="openItem(item.id)"
     @keydown.space.prevent="openItem(item.id)"

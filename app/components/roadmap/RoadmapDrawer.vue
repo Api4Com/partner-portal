@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HORIZONS, type PartnerProfile } from '~/lib/roadmap'
+import { HORIZONS, type PartnerProfile, whatsappUrl } from '~/lib/roadmap'
 
 const {
   activeItem,
@@ -8,6 +8,13 @@ const {
   states,
   react
 } = useRoadmap()
+
+const isRadar = computed(() => activeItem.value?.horizon !== 'now')
+
+// Contato direto com o gerente de parcerias, já mencionando o item aberto.
+const escalateHref = computed(() =>
+  whatsappUrl(activeItem.value ? `Olá! Queria falar sobre a ideia "${activeItem.value.title}" do roadmap.` : undefined)
+)
 
 const tab = ref<PartnerProfile>('commercial')
 
@@ -53,6 +60,9 @@ function vote(reaction: 'like' | 'dislike') {
               : 'bg-amber-50 text-amber-700 ring-amber-200'"
           >
             {{ horizon.title }}
+          </span>
+          <span v-if="isRadar" class="text-[11px] font-medium text-amber-600/90">
+            Em avaliação · ainda não é um compromisso de entrega
           </span>
         </div>
 
@@ -146,6 +156,24 @@ function vote(reaction: 'like' | 'dislike') {
               </a>
             </div>
           </section>
+        </div>
+
+        <!-- Escalonamento de prioridade (só radar): baixo destaque, contextual -->
+        <div v-if="isRadar" class="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-4">
+          <p class="text-sm font-medium text-amber-900">Você ou seus clientes precisam muito disso?</p>
+          <p class="mt-0.5 text-xs leading-relaxed text-amber-800/80">
+            Nos conte o contexto. Demanda real de clientes é o que mais pesa quando decidimos o que priorizar.
+          </p>
+          <a
+            :href="escalateHref"
+            target="_blank"
+            rel="noopener"
+            class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline"
+          >
+            <UIcon name="i-lucide-message-circle" class="h-3.5 w-3.5" />
+            Fale com a gente sobre esta ideia
+            <UIcon name="i-lucide-arrow-right" class="h-3.5 w-3.5" />
+          </a>
         </div>
 
         <!-- Comentários (sempre visível, independente da aba) -->
