@@ -52,10 +52,13 @@ async function onSubmit() {
   }
 }
 
-function toggleMode() {
-  mode.value = mode.value === 'login' ? 'signup' : 'login'
-  errorMsg.value = null
-}
+// SIGNUP DESABILITADO (temporário): o cadastro não é feito por este portal por ora.
+// Para reativar, descomente este `toggleMode` e o bloco "Ainda não tem conta?" no
+// template. O restante do fluxo (signup em onSubmit, campos e reCAPTCHA) segue pronto.
+// function toggleMode() {
+//   mode.value = mode.value === 'login' ? 'signup' : 'login'
+//   errorMsg.value = null
+// }
 
 // Destaques do painel de marca
 const HIGHLIGHTS = [
@@ -194,12 +197,14 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
             </UButton>
           </UForm>
 
+          <!-- SIGNUP DESABILITADO (temporário) — reativar quando o portal aceitar cadastro:
           <p class="mt-6 text-center text-sm text-muted">
             {{ mode === 'login' ? 'Ainda não tem conta?' : 'Já tem conta?' }}
             <UButton variant="link" class="px-1" @click="toggleMode">
               {{ mode === 'login' ? 'Cadastre-se' : 'Faça login' }}
             </UButton>
           </p>
+          -->
         </template>
       </div>
     </div>
