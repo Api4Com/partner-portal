@@ -47,8 +47,14 @@ const CAUSE_EN_PT: Record<BffCall['cause'], HangupCause> = {
 }
 
 const { bffFetch } = useAuth()
+const toast = useToast()
 const DAY = 86400000
 const PAGE_SIZE = 15
+// Teto do fetch de usuários "sem chamada" por subconta e do export (evita loop/rows
+// infinitos). Se um dia estourar, avisamos em vez de truncar em silêncio.
+const USERS_FETCH_LIMIT = 1000
+const EXPORT_MAX_PAGES = 100
+const EXPORT_PAGE_SIZE = 500
 
 /* ----- filtros (mesma UX do mock; persistidos na URL) ----- */
 type Periodo = 'all' | 'today' | '7d' | '30d' | 'month' | 'custom'
@@ -128,7 +134,15 @@ const summary = ref<Summary | null>(null)
 const callsResp = ref<CallsPage | null>(null)
 const noCallRows = ref<ReportRow[]>([])
 const loading = ref(false)
+const exporting = ref(false)
 const errorMsg = ref('')
+
+// Sequências por loader: filtros mudam rápido e as respostas voltam fora de ordem.
+// Cada chamada captura seu número; só a mais recente escreve no estado (as antigas
+// são descartadas), evitando que uma resposta obsoleta sobrescreva a atual.
+let callsSeq = 0
+let summarySeq = 0
+let noCallsSeq = 0
 
 /** Monta a query comum (escopo + período). */
 function baseQuery(extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -163,18 +177,21 @@ async function loadSubaccounts() {
 }
 
 async function loadSummary() {
+  const seq = ++summarySeq
   try {
-    summary.value = await bffFetch<Summary>('/reports/summary', { query: baseQuery() })
+    const resp = await bffFetch<Summary>('/reports/summary', { query: baseQuery() })
+    if (seq === summarySeq) summary.value = resp
   } catch {
-    summary.value = null
+    if (seq === summarySeq) summary.value = null
   }
 }
 
 async function loadCalls() {
+  const seq = ++callsSeq
   loading.value = true
   errorMsg.value = ''
   try {
-    callsResp.value = await bffFetch<CallsPage>('/calls', {
+    const resp = await bffFetch<CallsPage>('/calls', {
       query: baseQuery({
         q: search.value.trim() || undefined,
         sort: sortKey.value,
@@ -183,11 +200,14 @@ async function loadCalls() {
         pageSize: PAGE_SIZE
       })
     })
+    if (seq !== callsSeq) return // resposta obsoleta: um load mais novo já está em andamento
+    callsResp.value = resp
   } catch {
+    if (seq !== callsSeq) return
     errorMsg.value = 'Falha ao carregar as chamadas.'
     callsResp.value = null
   } finally {
-    loading.value = false
+    if (seq === callsSeq) loading.value = false
   }
 }
 
@@ -201,13 +221,19 @@ async function loadNoCalls() {
     noCallRows.value = []
     return
   }
+  const seq = ++noCallsSeq
   const q = search.value.trim().toLowerCase()
   const rows: ReportRow[] = []
   for (const s of scopeSubs.value) {
     let users: SubUser[] = []
     try {
-      const r = await bffFetch<{ data: SubUser[] }>(`/subaccounts/${s.id}/users`, { query: { limit: 1000, ...range.value } })
+      const r = await bffFetch<{ data: SubUser[] }>(`/subaccounts/${s.id}/users`, { query: { limit: USERS_FETCH_LIMIT, ...range.value } })
       users = r.data ?? []
+      // Sem contrato de paginação neste endpoint: se vier no teto, pode haver mais
+      // usuários não listados — avisa em vez de esconder a truncagem.
+      if (users.length >= USERS_FETCH_LIMIT) {
+        console.warn(`[relatorio] subconta ${s.id}: lista de usuários pode estar truncada em ${USERS_FETCH_LIMIT}.`)
+      }
     } catch {
       users = []
     }
@@ -218,7 +244,9 @@ async function loadNoCalls() {
         id: `nocall-${s.id}-${u.id}`,
         subId: s.id,
         subName: s.name,
-        userId: u.email,
+        // userId = id do usuário (mesmo espaço de BffCall.userId) para o tint do
+        // avatar ficar consistente entre linhas de chamada e "sem ligação".
+        userId: u.id,
         userName: u.name,
         date: '',
         duration: 0,
@@ -228,7 +256,7 @@ async function loadNoCalls() {
       })
     }
   }
-  noCallRows.value = rows
+  if (seq === noCallsSeq) noCallRows.value = rows
 }
 
 /* ----- derivados para o template ----- */
@@ -364,42 +392,65 @@ function csvCell(v: string | number): string {
 }
 
 async function exportCsv() {
-  const rows: ReportRow[] = []
-  let p = 1
-  let pages = 1
-  do {
-    const r = await bffFetch<CallsPage>('/calls', {
-      query: baseQuery({ q: search.value.trim() || undefined, sort: sortKey.value, order: sortDir.value, page: p, pageSize: 500 })
-    })
-    rows.push(...(r.data ?? []).map(toRow))
-    pages = r.pages || 1
-    p++
-  } while (p <= pages)
-  rows.push(...noCallRows.value)
+  if (exporting.value || total.value === 0) return
+  exporting.value = true
+  try {
+    const rows: ReportRow[] = []
+    let p = 1
+    let pages = 1
+    let truncated = false
+    do {
+      const r = await bffFetch<CallsPage>('/calls', {
+        query: baseQuery({ q: search.value.trim() || undefined, sort: sortKey.value, order: sortDir.value, page: p, pageSize: EXPORT_PAGE_SIZE })
+      })
+      rows.push(...(r.data ?? []).map(toRow))
+      pages = r.pages || 1
+      p++
+      // Teto de páginas: não trava o browser num export gigante. Se atingir, avisa.
+      if (p > EXPORT_MAX_PAGES && p <= pages) {
+        truncated = true
+        break
+      }
+    } while (p <= pages)
+    rows.push(...noCallRows.value)
 
-  const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento', 'Link da gravação']
-  const lines = rows.map(c => [
-    c.userName ?? '',
-    c.subName ?? '',
-    c.date ? fmtCallDate(c.date) : 'Sem ligação',
-    c.duration || '',
-    c.number,
-    c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação',
-    c.recording ?? ''
-  ].map(csvCell).join(';'))
+    const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento', 'Link da gravação']
+    const lines = rows.map(c => [
+      c.userName ?? '',
+      c.subName ?? '',
+      c.date ? fmtCallDate(c.date) : 'Sem ligação',
+      c.duration || '',
+      c.number,
+      c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação',
+      c.recording ?? ''
+    ].map(csvCell).join(';'))
 
-  const csv = [headers.map(csvCell).join(';'), ...lines].join('\r\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  const stamp = new Date().toISOString().slice(0, 10)
-  const scope = subSelection.value.length === 0
-    ? 'todas'
-    : subSelection.value.length === 1 ? subSelection.value[0]!.toLowerCase() : `${subSelection.value.length}-subcontas`
-  a.href = url
-  a.download = `relatorio-chamadas-${scope}-${stamp}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+    const csv = [headers.map(csvCell).join(';'), ...lines].join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const stamp = new Date().toISOString().slice(0, 10)
+    const scope = subSelection.value.length === 0
+      ? 'todas'
+      : subSelection.value.length === 1 ? subSelection.value[0]!.toLowerCase() : `${subSelection.value.length}-subcontas`
+    a.href = url
+    a.download = `relatorio-chamadas-${scope}-${stamp}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    if (truncated) {
+      toast.add({
+        title: 'Exportação parcial',
+        description: `Foram exportadas as primeiras ${EXPORT_MAX_PAGES * EXPORT_PAGE_SIZE} chamadas. Refine o filtro para exportar o restante.`,
+        icon: 'i-lucide-triangle-alert',
+        color: 'warning'
+      })
+    }
+  } catch {
+    toast.add({ title: 'Falha ao exportar', description: 'Não foi possível gerar o CSV. Tente novamente.', icon: 'i-lucide-triangle-alert', color: 'error' })
+  } finally {
+    exporting.value = false
+  }
 }
 </script>
 
@@ -416,8 +467,8 @@ async function exportCsv() {
           <p class="text-sm text-muted">Detalhamento de chamadas por subconta · KPIs e listagem com exportação</p>
         </div>
         <div class="flex flex-col items-stretch gap-2">
-          <UButton icon="i-lucide-download" color="neutral" variant="outline" :disabled="total === 0" @click="exportCsv">
-            Exportar CSV
+          <UButton icon="i-lucide-download" color="neutral" variant="outline" :disabled="total === 0 || exporting" :loading="exporting" @click="exportCsv">
+            {{ exporting ? 'Exportando…' : 'Exportar CSV' }}
           </UButton>
           <UButton icon="i-lucide-plug-zap" color="primary" variant="soft" disabled>
             Acessar via MCP

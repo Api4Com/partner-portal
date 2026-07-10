@@ -64,10 +64,31 @@ function isExpired(token: string): boolean {
   return Date.now() >= claims.exp * 1000 - clockSkewMs
 }
 
+// Status HTTP de um erro do ofetch (FetchError expõe em `.response.status`/`.status`).
+function errStatus(err: unknown): number | undefined {
+  return (err as { response?: { status?: number } })?.response?.status
+    ?? (err as { status?: number })?.status
+}
+
+// Renovação em vôo compartilhada: fetches paralelos que caem em 401 reusam o mesmo
+// POST /auth/refresh em vez de dispararem vários (com rotação de cookie, múltiplos
+// refreshes concorrentes matam a sessão no meio do load). Escopo de módulo → só no
+// client (o refresh é pulado no SSR).
+let refreshInflight: Promise<boolean> | null = null
+
 export function useAuth() {
-  const cookieOpts = { sameSite: 'lax' as const, path: '/', maxAge: 60 * 60 * 24 * 7 }
+  const cookieOpts = {
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+    // Em produção o JWT só trafega por HTTPS; em dev (http://localhost) `secure`
+    // impediria o cookie de ser gravado.
+    secure: !import.meta.dev
+  }
   const accessToken = useCookie<string | null>('access_token', cookieOpts)
   const user = useState<PbxUser | null>('auth-user', () => null)
+
+  const { executeRecaptcha } = useRecaptcha()
 
   const config = useRuntimeConfig().public
   const bffBase = config.bffBase
@@ -113,6 +134,9 @@ export function useAuth() {
 
   // pbxapi não auto-loga no cadastro: exige verificação de e-mail antes do login.
   async function signup(payload: SignupPayload) {
+    // reCAPTCHA v3: o BFF em `enforce` rejeita o cadastro sem token (RECAPTCHA_MISSING).
+    // Em `observe`/sem chave, executeRecaptcha resolve null e o cadastro segue.
+    const recaptchaToken = await executeRecaptcha('signup')
     return $fetch<{ status: number, message: string }>('/accounts/signup', {
       baseURL: bffBase,
       method: 'POST',
@@ -121,27 +145,47 @@ export function useAuth() {
         organization_name: payload.organizationName,
         email: payload.email,
         password: payload.password,
-        phone: payload.phone
+        phone: payload.phone,
+        recaptchaToken
       }
     })
   }
 
   async function refresh(): Promise<boolean> {
-    // O refresh token vive num cookie httpOnly gerenciado pelo BFF; o JS não o
-    // acessa. `credentials: 'include'` faz o browser enviá-lo automaticamente.
-    // A renovação passa pelo BFF (não mais direto no Core) e devolve só o access.
+    // No SSR o $fetch server-side não encaminha o cookie httpOnly do refresh, então
+    // qualquer tentativa daria 401 e derrubaria uma sessão válida. Pula no servidor
+    // (retorna false SEM limpar) e deixa o client renovar de verdade.
+    if (import.meta.server) return false
+    // Memoiza a renovação em vôo: chamadas concorrentes reusam a mesma promise.
+    if (refreshInflight) return refreshInflight
+
+    refreshInflight = (async () => {
+      // O refresh token vive num cookie httpOnly gerenciado pelo BFF; o JS não o
+      // acessa. `credentials: 'include'` faz o browser enviá-lo automaticamente.
+      // A renovação passa pelo BFF (não mais direto no Core) e devolve só o access.
+      try {
+        const { accessToken: token } = await $fetch<AccessTokenResponse>('/auth/refresh', {
+          baseURL: bffBase,
+          method: 'POST',
+          credentials: 'include'
+        })
+        setAccessToken(token)
+        hydrateFromToken()
+        return true
+      } catch (err) {
+        // Só derruba a sessão quando o refresh é de fato recusado (401/403 = token
+        // inválido/expirado). Rede, 5xx, CORS e timeout NÃO limpam — o access token
+        // atual segue valendo e uma nova tentativa pode funcionar.
+        const status = errStatus(err)
+        if (status === 401 || status === 403) clearSession()
+        return false
+      }
+    })()
+
     try {
-      const { accessToken: token } = await $fetch<AccessTokenResponse>('/auth/refresh', {
-        baseURL: bffBase,
-        method: 'POST',
-        credentials: 'include'
-      })
-      setAccessToken(token)
-      hydrateFromToken()
-      return true
-    } catch {
-      clearSession()
-      return false
+      return await refreshInflight
+    } finally {
+      refreshInflight = null
     }
   }
 
