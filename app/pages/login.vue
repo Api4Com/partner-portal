@@ -8,6 +8,7 @@ const mode = ref<Mode>('login')
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 const confirmSent = ref(false)
+const showPassword = ref(false)
 
 const state = reactive({
   fullName: '',
@@ -187,7 +188,29 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
               <UInput v-model="state.email" type="email" icon="i-lucide-mail" placeholder="E-mail" size="lg" class="w-full" required />
             </UFormField>
             <UFormField name="password">
-              <UInput v-model="state.password" type="password" icon="i-lucide-lock" placeholder="Senha" size="lg" class="w-full" required />
+              <UInput
+                v-model="state.password"
+                :type="showPassword ? 'text' : 'password'"
+                icon="i-lucide-lock"
+                placeholder="Senha"
+                size="lg"
+                class="w-full"
+                :ui="{ trailing: 'pe-1' }"
+                required
+              >
+                <template #trailing>
+                  <UButton
+                    color="neutral"
+                    variant="link"
+                    size="sm"
+                    :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                    :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
+                    :aria-pressed="showPassword"
+                    tabindex="-1"
+                    @click="showPassword = !showPassword"
+                  />
+                </template>
+              </UInput>
             </UFormField>
 
             <UAlert v-if="errorMsg" color="error" variant="subtle" :title="errorMsg" icon="i-lucide-triangle-alert" />
