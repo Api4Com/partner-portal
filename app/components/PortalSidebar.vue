@@ -30,10 +30,10 @@ const userInitials = computed(() => {
 })
 
 // Produtos do workspace API4COM acessíveis pelo launcher (clique no logo).
-// Os hrefs externos serão configurados depois — troque "#" pela URL real.
+// Itens externos abrem em nova aba; o "Portal de Parceiros" (current) é rota interna.
 const WORKSPACE_APPS = [
-  { label: 'Portal do Usuário', description: 'Conta, extensões e configurações', href: '#', icon: 'i-lucide-users' },
-  { label: 'Webphone', description: 'Faça e receba chamadas no navegador', href: '#', icon: 'i-lucide-headphones' },
+  { label: 'Portal do Usuário', description: 'Conta, extensões e configurações', href: 'https://app.api4com.com', icon: 'i-lucide-users' },
+  { label: 'Webphone', description: 'Faça e receba chamadas no navegador', href: 'https://chromewebstore.google.com/detail/webphone-api4com/ccahjcilejbllkkgngikflblpgojjdaa', icon: 'i-lucide-headphones' },
   { label: 'Portal de Parceiros', description: 'Você está aqui', href: '/', icon: 'i-lucide-layout-grid', current: true }
 ]
 const launcherOpen = ref(false)

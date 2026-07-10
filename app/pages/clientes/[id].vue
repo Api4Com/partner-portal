@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import {
   API_KEY,
-  AVATAR_PALETTE,
   avatarTint,
   buildMeta,
-  CONTA_PRINCIPAL,
+  fmt,
   fmtLastCall,
   initials,
   ROLE_BADGE,
@@ -13,30 +12,72 @@ import {
   type UsuarioRole
 } from '~/lib/contas'
 
-const toast = useToast()
+/* ----- contrato do BFF ----- */
+interface BffSubaccount { id: string, name: string, users: number, minutes: number, status: 'active' | 'inactive' }
+interface BffSubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
+interface Summary { subaccounts: number, usersTotal: number, active7d: number, inactive: number, volumeMinutes: number, answerRate: number, callsInPeriod: number }
 
+const toast = useToast()
 const route = useRoute()
 const id = route.params.id as string
-const { byId, indexOf } = useSubcontas()
+const { user, bffFetch } = useAuth()
+const DAY = 86400000
 
-const subconta = byId(id)
-// Subconta inexistente (ex.: criada em runtime e a página foi recarregada) → home.
-if (!subconta) {
-  await navigateTo('/')
+/* ----- dados reais (BFF) ----- */
+const loading = ref(true)
+const subconta = ref<BffSubaccount | null>(null)
+const usuarios = ref<Usuario[]>([])
+const summary = ref<Summary | null>(null)
+const novoUsuarioOpen = ref(false)
+
+// Subconta e usuário do BFF vêm em inglês; a UI reaproveita os tipos/badges do mock.
+const statusBadge = computed(() => (subconta.value?.status === 'active' ? STATUS_BADGE.ativo : STATUS_BADGE.inativo))
+const partnerName = computed(() => user.value?.name || 'a conta principal')
+const meta = buildMeta(id)
+// Sem campo de cobrança no BFF: a subconta é quem define pré-pago/plano.
+const chargeLabel = 'Definido pela subconta'
+
+function mapUser(u: BffSubUser): Usuario {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role === 'admin' ? 'admin' : 'usuario',
+    active: u.active,
+    lastCall: u.lastCall ?? ''
+  }
 }
 
-const index = indexOf(id)
-const meta = subconta ? buildMeta(subconta.id) : []
-const chargeLabel = computed(() => {
-  if (!subconta) return ''
-  if (subconta.charge === 'pending') return 'Aguardando definição da subconta'
-  return `${subconta.charge === 'plan' ? 'Plano · por usuário' : 'Pré-pago'} · definido pela subconta`
+// Volumetria a partir do /reports/summary escopado nesta subconta (últimos 30 dias).
+const totalCalls = computed(() => (summary.value ? fmt(summary.value.callsInPeriod) : '—'))
+const tma = computed(() => {
+  const s = summary.value
+  if (!s || !s.callsInPeriod) return '—'
+  const secs = Math.round((s.volumeMinutes * 60) / s.callsInPeriod)
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`
 })
 
-/* ----- usuários da subconta ----- */
-const { list, add, setRole, toggleActive } = useUsuarios()
-const usuarios = subconta ? list(subconta) : computed(() => [])
-const novoUsuarioOpen = ref(false)
+async function loadDetail() {
+  loading.value = true
+  try {
+    const from = new Date(Date.now() - 30 * DAY).toISOString()
+    const [subs, usersResp, sum] = await Promise.all([
+      bffFetch<BffSubaccount[]>('/subaccounts'),
+      bffFetch<{ data: BffSubUser[] }>(`/subaccounts/${id}/users`).catch(() => ({ data: [] as BffSubUser[] })),
+      bffFetch<Summary>('/reports/summary', { query: { subaccountId: id, from } }).catch(() => null)
+    ])
+    subconta.value = subs.find(s => s.id === id) ?? null
+    usuarios.value = (usersResp.data ?? []).map(mapUser)
+    summary.value = sum
+  } catch {
+    subconta.value = null
+  } finally {
+    loading.value = false
+  }
+  // Subconta fora do escopo do parceiro (ou id inexistente) → volta pro painel.
+  if (!subconta.value) await navigateTo('/')
+}
+onMounted(loadDetail)
 
 const search = ref('')
 const roleFilter = ref<'all' | UsuarioRole>('all')
@@ -85,7 +126,6 @@ const dateFilterItems: { label: string, value: DateFilter }[] = [
   { label: 'Personalizado', value: 'custom' }
 ]
 
-const DAY = 86400000
 function withinLastCall(iso: string): boolean {
   if (dateFilter.value === 'all') return true
   if (dateFilter.value === 'never') return !iso
@@ -239,39 +279,42 @@ const roleItems = [
   { label: 'Admin', value: 'admin' }
 ]
 
+// Mutações de usuário são otimistas e locais (sessão): o BFF ainda não expõe
+// endpoints de escrita de usuários da subconta. Somem ao recarregar.
+function setUserRole(userId: string, role: UsuarioRole) {
+  usuarios.value = usuarios.value.map(x => (x.id === userId ? { ...x, role } : x))
+}
+
 function onUsuarioCriado(u: Usuario) {
-  if (!subconta) return
-  add(subconta.id, u)
+  usuarios.value = [u, ...usuarios.value]
   // Garante que o novo usuário fique visível (não escondido por um filtro ativo).
   if (hasActiveFilters.value) clearFilters()
   toast.add({ title: 'Usuário adicionado', description: u.name, icon: 'i-lucide-user-plus', color: 'success' })
 }
 
 function onRoleChange(userId: string, role: UsuarioRole) {
-  if (!subconta) return
   const u = usuarios.value.find(x => x.id === userId)
   if (!u || u.role === role) return
   const prev = u.role
-  setRole(subconta.id, userId, role)
+  setUserRole(userId, role)
   toast.add({
     title: 'Tipo de acesso alterado',
     description: `${u.name} agora é ${ROLE_BADGE[role].label}`,
     icon: 'i-lucide-shield-check',
     color: 'success',
-    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => setRole(subconta!.id, userId, prev) }]
+    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => setUserRole(userId, prev) }]
   })
 }
 
 function onToggleActive(u: Usuario) {
-  if (!subconta) return
-  toggleActive(subconta.id, u.id)
   const nowActive = !u.active // u referencia o estado anterior (mutação é imutável)
+  usuarios.value = usuarios.value.map(x => (x.id === u.id ? { ...x, active: nowActive } : x))
   toast.add({
     title: nowActive ? 'Usuário ativado' : 'Usuário desativado',
     description: u.name,
     icon: nowActive ? 'i-lucide-user-check' : 'i-lucide-user-x',
     color: nowActive ? 'success' : 'neutral',
-    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => toggleActive(subconta!.id, u.id) }]
+    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => { usuarios.value = usuarios.value.map(x => (x.id === u.id ? { ...x, active: !nowActive } : x)) } }]
   })
 }
 
@@ -298,28 +341,33 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
 <template>
   <PortalTopbar :breadcrumbs="[{ label: 'Painel Geral', to: '/' }, { label: subconta?.name ?? 'Cliente' }]" />
 
-  <div v-if="subconta" class="flex-1 overflow-y-auto px-7 pb-12 pt-7">
+  <div v-if="loading" class="flex flex-1 items-center justify-center py-24 text-sm text-dimmed">
+    <UIcon name="i-lucide-loader-circle" class="mr-2 h-4 w-4 animate-spin" />
+    Carregando subconta…
+  </div>
+
+  <div v-else-if="subconta" class="flex-1 overflow-y-auto px-7 pb-12 pt-7">
     <div class="mx-auto max-w-[1240px]">
       <!-- Header do detalhe -->
       <div class="mb-[22px] flex flex-wrap items-start justify-between gap-4">
         <div class="flex items-center gap-3.5">
           <div
             class="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-xl text-lg font-bold"
-            :class="AVATAR_PALETTE[index % AVATAR_PALETTE.length]"
+            :class="avatarTint(subconta.id)"
           >
             {{ initials(subconta.name) }}
           </div>
           <div>
             <div class="flex flex-wrap items-center gap-2.5">
               <h1 class="text-2xl font-bold tracking-tight">{{ subconta.name }}</h1>
-              <UBadge :color="STATUS_BADGE[subconta.status].color" variant="subtle">
-                {{ STATUS_BADGE[subconta.status].label }}
+              <UBadge :color="statusBadge.color" variant="subtle">
+                {{ statusBadge.label }}
               </UBadge>
             </div>
             <div class="mt-1.5 flex items-center gap-2.5 text-xs text-dimmed">
               <span class="rounded-md bg-muted px-2 py-1 font-mono text-muted">{{ subconta.id }}</span>
               <span>·</span>
-              <span>Subconta de {{ CONTA_PRINCIPAL.name }}</span>
+              <span>Subconta de {{ partnerName }}</span>
             </div>
           </div>
         </div>
@@ -357,16 +405,16 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
                   <UIcon name="i-lucide-phone" class="h-[15px] w-[15px]" />
-                  <span class="text-xs font-medium">Total de chamadas</span>
+                  <span class="text-xs font-medium">Total de chamadas (30d)</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">4.280</div>
+                <div class="text-2xl font-bold tracking-tight">{{ totalCalls }}</div>
               </div>
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
                   <UIcon name="i-lucide-clock" class="h-[15px] w-[15px]" />
                   <span class="text-xs font-medium">Duração média (TMA)</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">3m 42s</div>
+                <div class="text-2xl font-bold tracking-tight">{{ tma }}</div>
               </div>
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">

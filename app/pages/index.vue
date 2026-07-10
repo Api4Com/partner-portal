@@ -6,7 +6,7 @@ type SubStatus = 'active' | 'inactive'
 interface Subaccount { id: string, name: string, users: number, minutes: number, status: SubStatus }
 
 // BFF: active/inactive (inferido por chamadas nos últimos 7d) → badge PT do protótipo.
-const ptStatus = (s: SubStatus) => (s === 'active' ? 'ativo' : 'inativo') as const
+const ptStatus = (s: SubStatus): 'ativo' | 'inativo' => (s === 'active' ? 'ativo' : 'inativo')
 function barClass(s: SubStatus) { return s === 'inactive' ? 'bg-neutral-300' : 'bg-primary' }
 interface Summary {
   subaccounts: number, usersTotal: number, active7d: number, inactive: number
@@ -76,7 +76,7 @@ const kpis = computed(() => {
       icon: 'i-lucide-phone-call',
       iconClass: 'bg-emerald-50 text-emerald-600',
       value: `${active} de ${usersTotal}`,
-      sub: inactive > 0 ? `${inactive} sem ligar nos últimos 7 dias` : 'todas ligaram nos últimos 7 dias'
+      sub: inactive > 0 ? `${inactive} sem ligar nos últimos 7 dias` : 'todos ligaram nos últimos 7 dias'
     },
     { label: 'Volume', icon: 'i-lucide-activity', iconClass: 'bg-primary/10 text-primary', value: fmt(totalMinutes.value), sub: 'minutos · últimos 30 dias' },
     { label: 'Taxa de atendimento', icon: 'i-lucide-phone-incoming', iconClass: 'bg-amber-50 text-amber-600', value: `${s?.answerRate ?? 0}%`, sub: 'chamadas atendidas · últimos 30 dias' }
