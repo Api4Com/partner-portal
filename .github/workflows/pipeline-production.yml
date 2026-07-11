@@ -1,0 +1,19 @@
+name: Pipeline (Production)
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  test-and-quality:
+    uses: ./.github/workflows/reusable-workflow-test-and-quality.yml
+
+  # Builda a imagem a partir do código da release publicada e publica
+  # partner-portal:production no ECR us-east-1. Rebuild do zero (não promove a
+  # staging). Não faz deploy no host -- subir é manual (ver deploy/runbooks/).
+  build-image:
+    needs: [test-and-quality]
+    uses: ./.github/workflows/reusable-workflow-docker-image-build.yml
+    secrets: inherit
+    with:
+      image_tag: production

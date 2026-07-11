@@ -1,0 +1,35 @@
+name: Reusable Workflow (Test and Quality)
+
+on:
+  workflow_call
+
+jobs:
+  # Portal Nuxt (pnpm): sem suíte de testes hoje — o gate de qualidade é
+  # lint + typecheck (mesma checagem do ci.yml). NÃO usa eslint-annotate-action
+  # (o BFF anota o PR porque tem lint:report; aqui o `pnpm run lint` já reprova).
+  code-quality:
+    name: Code Quality
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck

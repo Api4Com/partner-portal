@@ -1,0 +1,52 @@
+name: Reusable Workflow (Build Docker Image)
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        type: string
+        required: true
+
+jobs:
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Get repository name
+        id: repo-name
+        uses: MariachiBear/get-repo-name-action@v1.1.0
+        with:
+          string-case: 'lowercase'
+
+      # Start AWS environment
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      # End AWS environment
+
+      # As envs NUXT_PUBLIC_* do portal são lidas em RUNTIME pelo Nitro, então o
+      # build da imagem NÃO precisa de build-args — o target `production` builda
+      # sozinho (npm ci + nuxt build internos ao Dockerfile).
+      - name: Build, tag, and push image
+        id: build-image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.repo-name.outputs.repository-name }}
+          ENVIRONMENT_IMAGE_TAG: ${{ inputs.image_tag }}
+          GIT_HASH_IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $REGISTRY/$ECR_REPOSITORY:$GIT_HASH_IMAGE_TAG -t $REGISTRY/$ECR_REPOSITORY:$ENVIRONMENT_IMAGE_TAG --target production .
+          # Publica a tag do ambiente (staging/production) E a tag do commit
+          # (github.sha), para permitir rollback simples a um commit específico.
+          docker push $REGISTRY/$ECR_REPOSITORY:$ENVIRONMENT_IMAGE_TAG
+          docker push $REGISTRY/$ECR_REPOSITORY:$GIT_HASH_IMAGE_TAG
