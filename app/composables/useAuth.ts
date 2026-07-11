@@ -223,6 +223,8 @@ export function useAuth() {
   // Em 401 tenta refresh uma vez antes de propagar o erro.
   async function authedFetch<T>(base: string, path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
     if (accessToken.value && isExpired(accessToken.value)) await refresh()
+    // $fetch<T> devolve TypedInternalResponse<…, T>, que o TS não reduz a T num
+    // contexto genérico — cast explícito para o tipo pedido pelo chamador.
     const run = () => $fetch<T>(path, {
       baseURL: base,
       ...opts,
@@ -230,7 +232,7 @@ export function useAuth() {
         ...(opts.headers as Record<string, string> | undefined),
         ...(accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {})
       }
-    })
+    }) as Promise<T>
     try {
       return await run()
     } catch (err) {
