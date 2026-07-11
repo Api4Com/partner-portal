@@ -4,9 +4,9 @@ on:
   workflow_call
 
 jobs:
-  # Portal Nuxt (pnpm): sem suíte de testes hoje — o gate de qualidade é
-  # lint + typecheck (mesma checagem do ci.yml). NÃO usa eslint-annotate-action
-  # (o BFF anota o PR porque tem lint:report; aqui o `pnpm run lint` já reprova).
+  # Portal Nuxt (npm): sem suíte de testes hoje — o gate de qualidade é
+  # lint + typecheck. NÃO usa eslint-annotate-action (o BFF anota o PR porque
+  # tem lint:report; aqui o `npm run lint` já reprova o job).
   code-quality:
     name: Code Quality
     timeout-minutes: 10
@@ -16,20 +16,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-
       - name: Install node
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: pnpm
+          cache: npm
 
       - name: Install dependencies
-        run: pnpm install
+        run: npm ci
 
       - name: Lint
-        run: pnpm run lint
+        run: npm run lint
 
       - name: Typecheck
-        run: pnpm run typecheck
+        run: npm run typecheck
