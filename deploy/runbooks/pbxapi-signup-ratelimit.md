@@ -4,7 +4,7 @@
 **Não toca:** `trust proxy`, nem o limite dos demais canais.
 **Objetivo:** o canal do parceiro (BFF) passa a ter um limite próprio; portal antigo / API direta continuam **exatamente** como hoje (`5/dia` por `req.ip`).
 
-> **Descoberta (confirmada):** o `bff-portal` **não tem rate limit nenhum hoje** (sem `@nestjs/throttler`/`express-rate-limit`, sem `trust proxy`). Enquanto o limite por-cliente não for construído lá (ver `bff-portal-signup-ratelimit.md`), este **backstop de velocidade é a ÚNICA proteção** do canal parceiro. Por isso: pbx primeiro.
+> **Descoberta (confirmada):** o `partner-portal-bff` **não tem rate limit nenhum hoje** (sem `@nestjs/throttler`/`express-rate-limit`, sem `trust proxy`). Enquanto o limite por-cliente não for construído lá (ver `partner-portal-bff-signup-ratelimit.md`), este **backstop de velocidade é a ÚNICA proteção** do canal parceiro. Por isso: pbx primeiro.
 
 ---
 
@@ -50,7 +50,7 @@ const crypto = require('crypto');
 Helper (perto dos outros helpers de skip):
 
 ```js
-// Canal confiável de parceiro: o bff-portal envia o segredo em `x-partner-signup`.
+// Canal confiável de parceiro: o partner-portal-bff envia o segredo em `x-partner-signup`.
 // Comparação em tempo constante; fail-closed se a env não estiver setada.
 const isPartnerChannel = (req) => {
   const expected = process.env.PARTNER_SIGNUP_KEY || '';
@@ -81,7 +81,7 @@ Adicione o backstop do parceiro (logo abaixo):
 
 ```js
 // Backstop de VELOCIDADE do canal parceiro. O limite REAL por-cliente vive no
-// bff-portal (onde req.ip é o cliente verdadeiro). Aqui a chave é req.ip = a
+// partner-portal-bff (onde req.ip é o cliente verdadeiro). Aqui a chave é req.ip = a
 // FONTE (o BFF) -> é um balde ÚNICO/compartilhado para TODO o tráfego de parceiro.
 // Por isso limitamos VELOCIDADE (por minuto), NÃO total diário: cadastro orgânico
 // é espalhado no tempo e quase nunca dispara; abuso com segredo vazado é um burst
@@ -125,10 +125,10 @@ app.post(`/api${version}/accounts/signup`,
 
 ```diff
   API4COM_RATE_LIMIT_SIGNUPS_PER_DAY=5
-+ # Backstop de VELOCIDADE do canal parceiro (bff-portal). Balde compartilhado
++ # Backstop de VELOCIDADE do canal parceiro (partner-portal-bff). Balde compartilhado
 + # por FONTE (IP do BFF), por MINUTO — NÃO é total diário (um teto diário
 + # compartilhado bloquearia todo mundo num dia movimentado). O limite por-cliente
-+ # real fica no bff-portal. Default do código: 15/min.
++ # real fica no partner-portal-bff. Default do código: 15/min.
 + API4COM_RATE_LIMIT_PARTNER_SIGNUPS_PER_MINUTE=15
 ```
 

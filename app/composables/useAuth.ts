@@ -1,4 +1,4 @@
-// Login/signup passam pelo bff-portal → pbxapi; pós-login o portal fala direto
+// Login/signup passam pelo partner-portal-bff → pbxapi; pós-login o portal fala direto
 // com o Core. O usuário atual vem das claims do access JWT (não há /users/me).
 export interface AccountContext {
   currentCustomerId?: string

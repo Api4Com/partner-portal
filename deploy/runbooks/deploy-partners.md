@@ -14,10 +14,10 @@ valores da tabela abaixo.
 
 | | **Portal** | **BFF** |
 |---|---|---|
-| Repo (git) | `partner-portal` | `bff-portal` |
+| Repo (git) | `partner-portal` | `partner-portal-bff` |
 | Branch | `feat/HACKAFEST-partners` | `feat/HACKAFEST-partners` |
 | Build target | `production` | `production` |
-| ECR repo | `partner-portal` | `bff-portal` |
+| ECR repo | `partner-portal` | `partner-portal-bff` |
 | Serviço no compose | `partners-portal` | `partners-bff` |
 | Container | `staging-partners-portal` | `staging-partners-bff` |
 | `.env` do app (host) | `/opt/staging/apps/partners/portal/.env.staging` | `/opt/staging/apps/partners/bff/.env.staging` |

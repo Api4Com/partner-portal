@@ -1,6 +1,6 @@
-# Runbook — bff-portal: limite de signup por cliente real
+# Runbook — partner-portal-bff: limite de signup por cliente real
 
-**Repo-alvo:** `bff-portal` (branch `feat/HACKAFEST-partners`) — mantido por outro agente.
+**Repo-alvo:** `partner-portal-bff` (branch `feat/HACKAFEST-partners`) — mantido por outro agente.
 **Objetivo:** aplicar o limite **real** de signup por cliente (`5/dia`) aqui, onde `req.ip` é o cliente verdadeiro (o BFF fica atrás do Traefik/NGINX, que entrega o IP real). O pbx só mantém um teto de **velocidade** (backstop por minuto) — ver `pbxapi-signup-ratelimit.md`.
 
 > **Descoberta (confirmada em `feat/HACKAFEST-partners`):** o BFF **não tem rate limit hoje** — nenhuma dep (`@nestjs/throttler`, `express-rate-limit`), nenhum uso no `src`, só guards de auth (`user-auth`, `core-jwt`, `client-auth`). E **não há `trust proxy`** habilitado. Ou seja, isto é greenfield: nada para reaproveitar, e **hoje não existe proteção por-cliente** no fluxo de parceiro. Até este runbook entrar, o único guard é o backstop de velocidade do pbx.
@@ -114,12 +114,12 @@ protected async throwThrottlingException(): Promise<void> {
 ## Deploy (staging)
 
 ```bash
-cd ~/dev/sourcecode/bff-portal
+cd ~/dev/sourcecode/partner-portal-bff
 ECR=824572654562.dkr.ecr.us-east-1.amazonaws.com
-docker build --target production -t bff-portal:staging .
+docker build --target production -t partner-portal-bff:staging .
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-docker tag bff-portal:staging $ECR/bff-portal:staging
-docker push $ECR/bff-portal:staging
+docker tag partner-portal-bff:staging $ECR/partner-portal-bff:staging
+docker push $ECR/partner-portal-bff:staging
 
 KEY=~/Documents/api4com/security/servers/api4com-br.pem
 ssh -i $KEY rocky@129.151.33.239 'cd /opt/staging && \
