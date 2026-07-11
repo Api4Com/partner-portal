@@ -17,3 +17,6 @@ jobs:
     secrets: inherit
     with:
       image_tag: production
+      # Produção publica production + v<version> (package.json), sem git-<sha>:
+      # assim não entra na regra de lifecycle das imagens git- (staging/rollback).
+      tag_mode: version
