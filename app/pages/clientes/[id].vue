@@ -182,13 +182,31 @@ function dateChipLabel(): string {
 const activeFilterChips = computed(() => {
   const chips: { key: string, label: string, clear: () => void }[] = []
   if (roleFilter.value !== 'all') {
-    chips.push({ key: 'role', label: `Acesso: ${roleFilterItems.find(i => i.value === roleFilter.value)?.label}`, clear: () => { roleFilter.value = 'all' } })
+    chips.push({
+      key: 'role',
+      label: `Acesso: ${roleFilterItems.find(i => i.value === roleFilter.value)?.label}`,
+      clear: () => {
+        roleFilter.value = 'all'
+      }
+    })
   }
   if (statusFilter.value !== 'all') {
-    chips.push({ key: 'status', label: `Status: ${statusFilterItems.find(i => i.value === statusFilter.value)?.label}`, clear: () => { statusFilter.value = 'all' } })
+    chips.push({
+      key: 'status',
+      label: `Status: ${statusFilterItems.find(i => i.value === statusFilter.value)?.label}`,
+      clear: () => {
+        statusFilter.value = 'all'
+      }
+    })
   }
   if (dateFilter.value !== 'all') {
-    chips.push({ key: 'date', label: `Ligação: ${dateChipLabel()}`, clear: () => { dateFilter.value = 'all' } })
+    chips.push({
+      key: 'date',
+      label: `Ligação: ${dateChipLabel()}`,
+      clear: () => {
+        dateFilter.value = 'all'
+      }
+    })
   }
   return chips
 })
@@ -272,7 +290,9 @@ const pagedUsuarios = computed(() =>
   displayUsuarios.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE)
 )
 // Volta para a 1ª página quando o conjunto filtrado/ordenado encolhe ou muda.
-watch(() => displayUsuarios.value.length, () => { page.value = 1 })
+watch(() => displayUsuarios.value.length, () => {
+  page.value = 1
+})
 
 const roleItems = [
   { label: 'Usuário', value: 'usuario' },
@@ -341,12 +361,21 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
 <template>
   <PortalTopbar :breadcrumbs="[{ label: 'Painel Geral', to: '/' }, { label: subconta?.name ?? 'Cliente' }]" />
 
-  <div v-if="loading" class="flex flex-1 items-center justify-center py-24 text-sm text-dimmed">
-    <UIcon name="i-lucide-loader-circle" class="mr-2 h-4 w-4 animate-spin" />
+  <div
+    v-if="loading"
+    class="flex flex-1 items-center justify-center py-24 text-sm text-dimmed"
+  >
+    <UIcon
+      name="i-lucide-loader-circle"
+      class="mr-2 h-4 w-4 animate-spin"
+    />
     Carregando subconta…
   </div>
 
-  <div v-else-if="subconta" class="flex-1 overflow-y-auto px-7 pb-12 pt-7">
+  <div
+    v-else-if="subconta"
+    class="flex-1 overflow-y-auto px-7 pb-12 pt-7"
+  >
     <div class="mx-auto max-w-[1240px]">
       <!-- Header do detalhe -->
       <div class="mb-[22px] flex flex-wrap items-start justify-between gap-4">
@@ -359,8 +388,13 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           </div>
           <div>
             <div class="flex flex-wrap items-center gap-2.5">
-              <h1 class="text-2xl font-bold tracking-tight">{{ subconta.name }}</h1>
-              <UBadge :color="statusBadge.color" variant="subtle">
+              <h1 class="text-2xl font-bold tracking-tight">
+                {{ subconta.name }}
+              </h1>
+              <UBadge
+                :color="statusBadge.color"
+                variant="subtle"
+              >
                 {{ statusBadge.label }}
               </UBadge>
             </div>
@@ -380,9 +414,14 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           <UCard>
             <div class="mb-3.5 flex items-center gap-2.5">
               <div class="grid h-[30px] w-[30px] place-items-center rounded-lg bg-brand-900 text-white">
-                <UIcon name="i-lucide-credit-card" class="h-4 w-4" />
+                <UIcon
+                  name="i-lucide-credit-card"
+                  class="h-4 w-4"
+                />
               </div>
-              <h2 class="text-base font-bold tracking-tight">Modelo comercial vigente</h2>
+              <h2 class="text-base font-bold tracking-tight">
+                Modelo comercial vigente
+              </h2>
             </div>
             <div class="overflow-hidden rounded-xl border border-default">
               <div class="flex items-center justify-between gap-3 border-b border-default bg-muted px-3.5 py-3">
@@ -399,29 +438,46 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           <!-- Volumetria -->
           <UCard>
             <div class="mb-4">
-              <h2 class="text-base font-bold tracking-tight">Volumetria &amp; Observabilidade</h2>
+              <h2 class="text-base font-bold tracking-tight">
+                Volumetria &amp; Observabilidade
+              </h2>
             </div>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
-                  <UIcon name="i-lucide-phone" class="h-[15px] w-[15px]" />
+                  <UIcon
+                    name="i-lucide-phone"
+                    class="h-[15px] w-[15px]"
+                  />
                   <span class="text-xs font-medium">Total de chamadas (30d)</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">{{ totalCalls }}</div>
+                <div class="text-2xl font-bold tracking-tight">
+                  {{ totalCalls }}
+                </div>
               </div>
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
-                  <UIcon name="i-lucide-clock" class="h-[15px] w-[15px]" />
+                  <UIcon
+                    name="i-lucide-clock"
+                    class="h-[15px] w-[15px]"
+                  />
                   <span class="text-xs font-medium">Duração média (TMA)</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">{{ tma }}</div>
+                <div class="text-2xl font-bold tracking-tight">
+                  {{ tma }}
+                </div>
               </div>
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
-                  <UIcon name="i-lucide-users" class="h-[15px] w-[15px]" />
+                  <UIcon
+                    name="i-lucide-users"
+                    class="h-[15px] w-[15px]"
+                  />
                   <span class="text-xs font-medium">Usuários</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">{{ usuarios.length }}</div>
+                <div class="text-2xl font-bold tracking-tight">
+                  {{ usuarios.length }}
+                </div>
                 <div class="mt-0.5 text-[11px] font-medium text-dimmed">
                   <span class="text-emerald-600">{{ callers30d }}</span> ligaram nos últimos 30 dias
                 </div>
@@ -434,10 +490,17 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
             <div class="border-b border-default px-5 py-4">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 class="mb-0.5 text-base font-bold tracking-tight">Usuários da subconta</h2>
-                  <p class="text-xs text-dimmed">Acesso isolado desta subconta · sem acesso de irmãs ou pai</p>
+                  <h2 class="mb-0.5 text-base font-bold tracking-tight">
+                    Usuários da subconta
+                  </h2>
+                  <p class="text-xs text-dimmed">
+                    Acesso isolado desta subconta · sem acesso de irmãs ou pai
+                  </p>
                 </div>
-                <UButton icon="i-lucide-user-plus" @click="novoUsuarioOpen = true">
+                <UButton
+                  icon="i-lucide-user-plus"
+                  @click="novoUsuarioOpen = true"
+                >
                   Adicionar usuário
                 </UButton>
               </div>
@@ -449,9 +512,20 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                   class="min-w-[200px] flex-1 sm:w-[280px] sm:flex-none"
                 />
                 <UPopover>
-                  <UButton color="neutral" variant="outline" icon="i-lucide-list-filter" trailing-icon="i-lucide-chevron-down">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    icon="i-lucide-list-filter"
+                    trailing-icon="i-lucide-chevron-down"
+                  >
                     Filtrar
-                    <UBadge v-if="activeFilterCount" color="primary" variant="solid" size="sm" class="ml-0.5">
+                    <UBadge
+                      v-if="activeFilterCount"
+                      color="primary"
+                      variant="solid"
+                      size="sm"
+                      class="ml-0.5"
+                    >
                       {{ activeFilterCount }}
                     </UBadge>
                   </UButton>
@@ -459,24 +533,68 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                     <div class="w-[300px] p-3.5">
                       <div class="mb-3 flex items-center justify-between">
                         <span class="text-[11px] font-semibold uppercase tracking-wider text-dimmed">Filtrar usuários</span>
-                        <UButton v-if="activeFilterCount" color="neutral" variant="link" size="xs" class="-mr-2" @click="clearFilters">
+                        <UButton
+                          v-if="activeFilterCount"
+                          color="neutral"
+                          variant="link"
+                          size="xs"
+                          class="-mr-2"
+                          @click="clearFilters"
+                        >
                           Limpar tudo
                         </UButton>
                       </div>
 
-                      <PortalFilterPills v-model="roleFilter" label="Tipo de acesso" :items="roleFilterItems" class="mb-3" />
+                      <PortalFilterPills
+                        v-model="roleFilter"
+                        label="Tipo de acesso"
+                        :items="roleFilterItems"
+                        class="mb-3"
+                      />
 
-                      <PortalFilterPills v-model="statusFilter" label="Status" :items="statusFilterItems" class="mb-3" />
+                      <PortalFilterPills
+                        v-model="statusFilter"
+                        label="Status"
+                        :items="statusFilterItems"
+                        class="mb-3"
+                      />
 
-                      <PortalFilterPills v-model="dateFilter" label="Última ligação" :items="dateFilterItems" />
-                      <div v-if="dateFilter === 'custom'" class="mt-2.5 space-y-2">
+                      <PortalFilterPills
+                        v-model="dateFilter"
+                        label="Última ligação"
+                        :items="dateFilterItems"
+                      />
+                      <div
+                        v-if="dateFilter === 'custom'"
+                        class="mt-2.5 space-y-2"
+                      >
                         <div class="flex items-center gap-2">
-                          <UInput v-model="customStart" type="date" :max="customEnd || undefined" size="sm" class="flex-1" aria-label="Data inicial" />
+                          <UInput
+                            v-model="customStart"
+                            type="date"
+                            :max="customEnd || undefined"
+                            size="sm"
+                            class="flex-1"
+                            aria-label="Data inicial"
+                          />
                           <span class="text-xs text-dimmed">até</span>
-                          <UInput v-model="customEnd" type="date" :min="customStart || undefined" size="sm" class="flex-1" aria-label="Data final" />
+                          <UInput
+                            v-model="customEnd"
+                            type="date"
+                            :min="customStart || undefined"
+                            size="sm"
+                            class="flex-1"
+                            aria-label="Data final"
+                          />
                         </div>
-                        <p v-if="customRangeInvalid" class="inline-flex items-center gap-1.5 text-xs font-medium text-error">
-                          <UIcon name="i-lucide-triangle-alert" class="h-3.5 w-3.5" />
+                        <p
+                          v-if="customRangeInvalid"
+                          class="inline-flex items-center gap-1.5 text-xs font-medium text-error"
+                        >
+                          <UIcon
+                            name="i-lucide-triangle-alert"
+                            class="h-3.5 w-3.5"
+                          />
                           A data inicial deve ser anterior à data final.
                         </p>
                       </div>
@@ -485,7 +603,11 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                 </UPopover>
               </div>
 
-              <PortalFilterChips :chips="activeFilterChips" class="mt-2.5" @clear-all="clearFilters" />
+              <PortalFilterChips
+                :chips="activeFilterChips"
+                class="mt-2.5"
+                @clear-all="clearFilters"
+              />
 
               <p class="mt-2.5 text-xs text-dimmed">
                 Mostrando <span class="font-semibold text-muted">{{ displayUsuarios.length }}</span> de {{ usuarios.length }} usuário{{ usuarios.length === 1 ? '' : 's' }}
@@ -493,10 +615,15 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
             </div>
             <div class="overflow-x-auto">
               <table class="w-full min-w-[560px] border-collapse">
-                <caption class="sr-only">Usuários da subconta com tipo de acesso, última ligação e status</caption>
+                <caption class="sr-only">
+                  Usuários da subconta com tipo de acesso, última ligação e status
+                </caption>
                 <thead>
                   <tr class="sticky top-0 z-10 bg-muted">
-                    <th scope="col" class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                    <th
+                      scope="col"
+                      class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
                       <button
                         type="button"
                         class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default"
@@ -504,11 +631,22 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                         @click="toggleSort('name')"
                       >
                         Usuário
-                        <UIcon :name="sortIcon('name')" class="h-3.5 w-3.5" />
+                        <UIcon
+                          :name="sortIcon('name')"
+                          class="h-3.5 w-3.5"
+                        />
                       </button>
                     </th>
-                    <th scope="col" class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Tipo de acesso</th>
-                    <th scope="col" class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                    <th
+                      scope="col"
+                      class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
+                      Tipo de acesso
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
                       <button
                         type="button"
                         class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default"
@@ -516,10 +654,18 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                         @click="toggleSort('lastCall')"
                       >
                         Última ligação
-                        <UIcon :name="sortIcon('lastCall')" class="h-3.5 w-3.5" />
+                        <UIcon
+                          :name="sortIcon('lastCall')"
+                          class="h-3.5 w-3.5"
+                        />
                       </button>
                     </th>
-                    <th scope="col" class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Status</th>
+                    <th
+                      scope="col"
+                      class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -538,8 +684,18 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                           {{ initials(u.name) }}
                         </div>
                         <div class="min-w-0">
-                          <div class="truncate text-[13px] font-semibold" :title="u.name">{{ u.name }}</div>
-                          <div class="truncate font-mono text-[11px] text-dimmed" :title="u.email">{{ u.email }}</div>
+                          <div
+                            class="truncate text-[13px] font-semibold"
+                            :title="u.name"
+                          >
+                            {{ u.name }}
+                          </div>
+                          <div
+                            class="truncate font-mono text-[11px] text-dimmed"
+                            :title="u.email"
+                          >
+                            {{ u.email }}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -572,8 +728,14 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                       </div>
                     </td>
                   </tr>
-                  <tr v-if="displayUsuarios.length === 0" class="border-t border-default">
-                    <td colspan="4" class="px-5 py-10 text-center">
+                  <tr
+                    v-if="displayUsuarios.length === 0"
+                    class="border-t border-default"
+                  >
+                    <td
+                      colspan="4"
+                      class="px-5 py-10 text-center"
+                    >
                       <p class="text-[13px] text-dimmed">
                         {{ usuarios.length === 0 ? 'Nenhum usuário nesta subconta.' : 'Nenhum usuário corresponde aos filtros aplicados.' }}
                       </p>
@@ -609,7 +771,10 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
               />
             </div>
           </div>
-          <ContasNovoUsuarioModal v-model:open="novoUsuarioOpen" @created="onUsuarioCriado" />
+          <ContasNovoUsuarioModal
+            v-model:open="novoUsuarioOpen"
+            @created="onUsuarioCriado"
+          />
         </div>
 
         <!-- Coluna direita -->
@@ -618,9 +783,14 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           <UCard>
             <div class="mb-3.5 flex items-center gap-2.5">
               <div class="grid h-[30px] w-[30px] place-items-center rounded-lg bg-brand-900 text-white">
-                <UIcon name="i-lucide-key-round" class="h-4 w-4" />
+                <UIcon
+                  name="i-lucide-key-round"
+                  class="h-4 w-4"
+                />
               </div>
-              <h2 class="text-base font-bold tracking-tight">API Key da Subconta</h2>
+              <h2 class="text-base font-bold tracking-tight">
+                API Key da Subconta
+              </h2>
             </div>
             <div class="flex items-center gap-2 rounded-xl bg-brand-900 px-3.5 py-3">
               <span class="flex-1 truncate font-mono text-xs text-brand-200">{{ maskedKey }}</span>
@@ -650,8 +820,13 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           <!-- Metadados -->
           <UCard>
             <div class="mb-1.5 flex items-center gap-2.5">
-              <UIcon name="i-lucide-activity" class="h-[17px] w-[17px] text-brand-700" />
-              <h2 class="text-base font-bold tracking-tight">Metadados de Observabilidade</h2>
+              <UIcon
+                name="i-lucide-activity"
+                class="h-[17px] w-[17px] text-brand-700"
+              />
+              <h2 class="text-base font-bold tracking-tight">
+                Metadados de Observabilidade
+              </h2>
             </div>
             <p class="mb-3.5 text-[11px] leading-relaxed text-dimmed">
               Referência para a engenharia mapear logs de integração e tracing.

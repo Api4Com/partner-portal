@@ -127,23 +127,37 @@ function next() {
 </script>
 
 <template>
-  <UModal v-model:open="open" :ui="{ content: 'sm:max-w-[600px]' }">
+  <UModal
+    v-model:open="open"
+    :ui="{ content: 'sm:max-w-[600px]' }"
+  >
     <template #content>
       <div class="flex max-h-[90vh] flex-col">
         <!-- Header -->
         <div class="flex shrink-0 items-start justify-between gap-3 border-b border-default px-6 pb-4 pt-5">
           <div class="flex items-center gap-3">
             <div class="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-              <UIcon name="i-lucide-user-plus" class="h-5 w-5" />
+              <UIcon
+                name="i-lucide-user-plus"
+                class="h-5 w-5"
+              />
             </div>
             <div>
-              <h2 class="text-lg font-bold tracking-tight">Nova Subconta</h2>
+              <h2 class="text-lg font-bold tracking-tight">
+                Nova Subconta
+              </h2>
               <p class="mt-0.5 text-xs text-dimmed">
                 Subconta gerida por {{ partnerName }} · saldo próprio e independente.
               </p>
             </div>
           </div>
-          <UButton color="neutral" variant="ghost" icon="i-lucide-x" aria-label="Fechar" @click="open = false" />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-x"
+            aria-label="Fechar"
+            @click="open = false"
+          />
         </div>
 
         <!-- Stepper -->
@@ -158,25 +172,47 @@ function next() {
               class="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full text-xs font-bold"
               :class="stepIdx >= i ? 'bg-primary text-inverted' : 'bg-muted text-dimmed'"
             >
-              <UIcon v-if="stepIdx > i" name="i-lucide-check" class="h-3.5 w-3.5" />
-              <template v-else>{{ i + 1 }}</template>
+              <UIcon
+                v-if="stepIdx > i"
+                name="i-lucide-check"
+                class="h-3.5 w-3.5"
+              />
+              <template v-else>
+                {{ i + 1 }}
+              </template>
             </div>
             <span
               class="whitespace-nowrap text-xs font-semibold"
               :class="stepIdx >= i ? 'text-default' : 'text-dimmed'"
             >{{ label }}</span>
-            <div v-if="i < STEPS.length - 1" class="mx-1.5 h-0.5 flex-1 rounded" :class="stepIdx > i ? 'bg-primary' : 'bg-muted'" />
+            <div
+              v-if="i < STEPS.length - 1"
+              class="mx-1.5 h-0.5 flex-1 rounded"
+              :class="stepIdx > i ? 'bg-primary' : 'bg-muted'"
+            />
           </div>
         </div>
 
         <!-- Body -->
         <div class="min-h-[320px] flex-1 overflow-y-auto px-6 py-[22px]">
           <!-- Identidade + admin -->
-          <div v-if="currentStep === 'Identidade'" class="flex flex-col gap-4">
+          <div
+            v-if="currentStep === 'Identidade'"
+            class="flex flex-col gap-4"
+          >
             <UFormField label="Nome da Subconta">
-              <UInput v-model="name" placeholder="Ex.: Empresa do Cliente" size="lg" class="w-full" autofocus />
+              <UInput
+                v-model="name"
+                placeholder="Ex.: Empresa do Cliente"
+                size="lg"
+                class="w-full"
+                autofocus
+              />
             </UFormField>
-            <UFormField label="Documento (CPF/CNPJ)" :help="docType ? `Detectado: ${docType}` : 'Opcional — informe CPF ou CNPJ'">
+            <UFormField
+              label="Documento (CPF/CNPJ)"
+              :help="docType ? `Detectado: ${docType}` : 'Opcional — informe CPF ou CNPJ'"
+            >
               <UInput
                 v-model="identification"
                 placeholder="CPF ou CNPJ (opcional)"
@@ -187,34 +223,75 @@ function next() {
             </UFormField>
 
             <div class="border-t border-default pt-4">
-              <p class="mb-3 text-[13px] font-semibold text-muted">Administrador da subconta</p>
+              <p class="mb-3 text-[13px] font-semibold text-muted">
+                Administrador da subconta
+              </p>
               <div class="flex flex-col gap-4">
                 <UFormField label="Nome do administrador">
-                  <UInput v-model="adminName" placeholder="Ex.: Maria Silva" size="lg" class="w-full" />
+                  <UInput
+                    v-model="adminName"
+                    placeholder="Ex.: Maria Silva"
+                    size="lg"
+                    class="w-full"
+                  />
                 </UFormField>
                 <div class="flex flex-col gap-4 sm:flex-row">
-                  <UFormField label="E-mail" class="flex-1">
-                    <UInput v-model="adminEmail" type="email" placeholder="Ex.: admin@empresa.com.br" size="lg" class="w-full" />
+                  <UFormField
+                    label="E-mail"
+                    class="flex-1"
+                  >
+                    <UInput
+                      v-model="adminEmail"
+                      type="email"
+                      placeholder="Ex.: admin@empresa.com.br"
+                      size="lg"
+                      class="w-full"
+                    />
                   </UFormField>
-                  <UFormField label="Telefone" class="flex-1">
-                    <UInput v-model="phone" inputmode="tel" placeholder="(11) 99999-9999" size="lg" class="w-full" />
+                  <UFormField
+                    label="Telefone"
+                    class="flex-1"
+                  >
+                    <UInput
+                      v-model="phone"
+                      inputmode="tel"
+                      placeholder="(11) 99999-9999"
+                      size="lg"
+                      class="w-full"
+                    />
                   </UFormField>
                 </div>
-                <UFormField label="Senha inicial" help="O administrador poderá alterá-la depois no portal do usuário.">
-                  <UInput v-model="password" type="password" placeholder="Mínimo 6 caracteres" size="lg" class="w-full" />
+                <UFormField
+                  label="Senha inicial"
+                  help="O administrador poderá alterá-la depois no portal do usuário."
+                >
+                  <UInput
+                    v-model="password"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    size="lg"
+                    class="w-full"
+                  />
                 </UFormField>
               </div>
             </div>
           </div>
 
           <!-- Cobrança (OCULTO — renderiza só se showCobranca=true) -->
-          <div v-else-if="currentStep === 'Cobrança'" class="flex flex-col gap-5">
+          <div
+            v-else-if="currentStep === 'Cobrança'"
+            class="flex flex-col gap-5"
+          >
             <div>
-              <p class="mb-2 text-[13px] font-semibold text-default">De quem se cobra · onde fica o saldo</p>
+              <p class="mb-2 text-[13px] font-semibold text-default">
+                De quem se cobra · onde fica o saldo
+              </p>
               <div class="flex items-start gap-3 rounded-xl border-[1.5px] border-primary/40 bg-primary/5 p-[15px]">
                 <span class="mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[5px] border-primary" />
                 <div>
-                  <div class="mb-0.5 text-[13px] font-semibold">Individual na subconta</div>
+                  <div class="mb-0.5 text-[13px] font-semibold">
+                    Individual na subconta
+                  </div>
                   <div class="text-[11px] leading-snug text-muted">
                     O cliente final compra crédito ou plano direto da API4COM, com saldo próprio e independente.
                   </div>
@@ -223,10 +300,15 @@ function next() {
             </div>
             <div class="flex items-start gap-2.5 rounded-xl border border-default bg-muted p-3.5">
               <div class="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-primary text-inverted">
-                <UIcon name="i-lucide-wallet" class="h-4 w-4" />
+                <UIcon
+                  name="i-lucide-wallet"
+                  class="h-4 w-4"
+                />
               </div>
               <div>
-                <div class="mb-0.5 text-[13px] font-bold">Como se cobra é definido pela subconta</div>
+                <div class="mb-0.5 text-[13px] font-bold">
+                  Como se cobra é definido pela subconta
+                </div>
                 <div class="text-[11px] leading-snug text-muted">
                   A própria subconta escolhe pré-pago ou plano ao comprar direto da API4COM.
                 </div>
@@ -235,7 +317,10 @@ function next() {
           </div>
 
           <!-- Revisão -->
-          <div v-else class="flex flex-col gap-[18px]">
+          <div
+            v-else
+            class="flex flex-col gap-[18px]"
+          >
             <div class="overflow-hidden rounded-xl border border-default">
               <div class="border-b border-default bg-muted px-3.5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-dimmed">
                 Revisão
@@ -264,8 +349,14 @@ function next() {
               </div>
             </div>
 
-            <div v-if="errorMsg" class="flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 px-3.5 py-2.5 text-[13px] text-error">
-              <UIcon name="i-lucide-triangle-alert" class="mt-0.5 h-4 w-4 shrink-0" />
+            <div
+              v-if="errorMsg"
+              class="flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 px-3.5 py-2.5 text-[13px] text-error"
+            >
+              <UIcon
+                name="i-lucide-triangle-alert"
+                class="mt-0.5 h-4 w-4 shrink-0"
+              />
               <span>{{ errorMsg }}</span>
             </div>
           </div>
@@ -273,12 +364,26 @@ function next() {
 
         <!-- Footer -->
         <div class="flex shrink-0 items-center justify-between gap-2.5 border-t border-default bg-muted px-6 py-4">
-          <UButton v-if="stepIdx > 0" color="neutral" variant="outline" icon="i-lucide-arrow-left" :disabled="submitting" @click="stepIdx -= 1">
+          <UButton
+            v-if="stepIdx > 0"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-arrow-left"
+            :disabled="submitting"
+            @click="stepIdx -= 1"
+          >
             Voltar
           </UButton>
           <span v-else />
           <div class="flex gap-2.5">
-            <UButton color="neutral" variant="ghost" :disabled="submitting" @click="open = false">Cancelar</UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              :disabled="submitting"
+              @click="open = false"
+            >
+              Cancelar
+            </UButton>
             <UButton
               :disabled="(stepIdx === 0 && !step1Valid) || submitting"
               :loading="submitting && isLast"

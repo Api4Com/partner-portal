@@ -7,10 +7,17 @@ interface Subaccount { id: string, name: string, users: number, minutes: number,
 
 // BFF: active/inactive (inferido por chamadas nos últimos 7d) → badge PT do protótipo.
 const ptStatus = (s: SubStatus): 'ativo' | 'inativo' => (s === 'active' ? 'ativo' : 'inativo')
-function barClass(s: SubStatus) { return s === 'inactive' ? 'bg-neutral-300' : 'bg-primary' }
+function barClass(s: SubStatus) {
+  return s === 'inactive' ? 'bg-neutral-300' : 'bg-primary'
+}
 interface Summary {
-  subaccounts: number, usersTotal: number, active7d: number, inactive: number
-  volumeMinutes: number, answerRate: number, callsInPeriod: number
+  subaccounts: number
+  usersTotal: number
+  active7d: number
+  inactive: number
+  volumeMinutes: number
+  answerRate: number
+  callsInPeriod: number
 }
 
 const toast = useToast()
@@ -99,25 +106,43 @@ async function onCreated(s: Subaccount) {
     <div class="mx-auto max-w-[1240px]">
       <!-- Cabeçalho -->
       <div class="mb-[22px]">
-        <p class="mb-1.5 text-xs font-semibold tracking-wide text-primary">Portal do Parceiro</p>
+        <p class="mb-1.5 text-xs font-semibold tracking-wide text-primary">
+          Portal do Parceiro
+        </p>
         <h1 class="mb-1 text-2xl font-bold tracking-tight sm:text-3xl">
           Bem-vindo de volta, {{ partnerName }}
         </h1>
-        <p class="text-sm text-muted">Painel da conta principal · gestão de subcontas</p>
+        <p class="text-sm text-muted">
+          Painel da conta principal · gestão de subcontas
+        </p>
       </div>
 
       <!-- KPIs -->
       <div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <UCard v-for="k in kpis" :key="k.label" :ui="{ body: 'p-5' }">
+        <UCard
+          v-for="k in kpis"
+          :key="k.label"
+          :ui="{ body: 'p-5' }"
+        >
           <div class="flex items-center justify-between">
             <span class="text-[13px] font-semibold text-muted">{{ k.label }}</span>
-            <div class="grid h-9 w-9 place-items-center rounded-lg" :class="k.iconClass">
-              <UIcon :name="k.icon" class="h-[18px] w-[18px]" />
+            <div
+              class="grid h-9 w-9 place-items-center rounded-lg"
+              :class="k.iconClass"
+            >
+              <UIcon
+                :name="k.icon"
+                class="h-[18px] w-[18px]"
+              />
             </div>
           </div>
           <div class="mt-3">
-            <div class="text-3xl font-bold tracking-tight">{{ k.value }}</div>
-            <div class="mt-2 text-xs text-dimmed">{{ k.sub }}</div>
+            <div class="text-3xl font-bold tracking-tight">
+              {{ k.value }}
+            </div>
+            <div class="mt-2 text-xs text-dimmed">
+              {{ k.sub }}
+            </div>
           </div>
         </UCard>
       </div>
@@ -127,13 +152,29 @@ async function onCreated(s: Subaccount) {
         <template #header>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-base font-bold tracking-tight">Gerenciamento de Subcontas</h2>
-              <p class="text-xs text-dimmed">Provisione e acompanhe o consumo de cada subconta</p>
+              <h2 class="text-base font-bold tracking-tight">
+                Gerenciamento de Subcontas
+              </h2>
+              <p class="text-xs text-dimmed">
+                Provisione e acompanhe o consumo de cada subconta
+              </p>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
-              <UInput v-model="search" icon="i-lucide-search" placeholder="Buscar por nome…" class="w-[190px]" />
-              <USelect v-model="statusFilter" :items="statusItems" class="w-[170px]" />
-              <UButton icon="i-lucide-plus" @click="wizardOpen = true">
+              <UInput
+                v-model="search"
+                icon="i-lucide-search"
+                placeholder="Buscar por nome…"
+                class="w-[190px]"
+              />
+              <USelect
+                v-model="statusFilter"
+                :items="statusItems"
+                class="w-[170px]"
+              />
+              <UButton
+                icon="i-lucide-plus"
+                @click="wizardOpen = true"
+              >
                 Nova Subconta
               </UButton>
             </div>
@@ -144,14 +185,26 @@ async function onCreated(s: Subaccount) {
           <table class="w-full min-w-[720px] border-collapse">
             <thead>
               <tr class="bg-muted/50">
-                <th class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Nome da Subconta</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Volumetria (30 dias)</th>
-                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Status</th>
-                <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">Ações</th>
+                <th class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                  Nome da Subconta
+                </th>
+                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                  Volumetria (30 dias)
+                </th>
+                <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                  Status
+                </th>
+                <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(s, i) in rows" :key="s.id" class="border-t border-default hover:bg-muted/40">
+              <tr
+                v-for="(s, i) in rows"
+                :key="s.id"
+                class="border-t border-default hover:bg-muted/40"
+              >
                 <td class="py-3.5 pl-[22px] pr-3.5">
                   <div class="flex items-center gap-3">
                     <div
@@ -165,7 +218,9 @@ async function onCreated(s: Subaccount) {
                 </td>
                 <td class="px-3.5 py-3.5">
                   <div class="min-w-[130px]">
-                    <div class="mb-1.5 text-[13px] font-semibold">{{ fmt(s.minutes) }} min</div>
+                    <div class="mb-1.5 text-[13px] font-semibold">
+                      {{ fmt(s.minutes) }} min
+                    </div>
                     <div class="h-[5px] overflow-hidden rounded-full bg-muted">
                       <div
                         class="h-full rounded-full"
@@ -176,7 +231,10 @@ async function onCreated(s: Subaccount) {
                   </div>
                 </td>
                 <td class="px-3.5 py-3.5">
-                  <UBadge :color="STATUS_BADGE[ptStatus(s.status)].color" variant="subtle">
+                  <UBadge
+                    :color="STATUS_BADGE[ptStatus(s.status)].color"
+                    variant="subtle"
+                  >
                     {{ STATUS_BADGE[ptStatus(s.status)].label }}
                   </UBadge>
                 </td>
@@ -192,8 +250,14 @@ async function onCreated(s: Subaccount) {
                   </UButton>
                 </td>
               </tr>
-              <tr v-if="rows.length === 0" class="border-t border-default">
-                <td colspan="4" class="px-[22px] py-10 text-center text-sm text-dimmed">
+              <tr
+                v-if="rows.length === 0"
+                class="border-t border-default"
+              >
+                <td
+                  colspan="4"
+                  class="px-[22px] py-10 text-center text-sm text-dimmed"
+                >
                   {{ loading ? 'Carregando…' : 'Nenhuma subconta encontrada com os filtros aplicados.' }}
                 </td>
               </tr>
@@ -205,8 +269,22 @@ async function onCreated(s: Subaccount) {
           <div class="flex items-center justify-between text-xs text-dimmed">
             <span>Mostrando {{ rows.length }} subconta{{ rows.length === 1 ? '' : 's' }}</span>
             <div class="flex gap-1.5">
-              <UButton color="neutral" variant="outline" size="xs" disabled>Anterior</UButton>
-              <UButton color="neutral" variant="outline" size="xs" disabled>Próximo</UButton>
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="xs"
+                disabled
+              >
+                Anterior
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="xs"
+                disabled
+              >
+                Próximo
+              </UButton>
             </div>
           </div>
         </template>
@@ -214,5 +292,8 @@ async function onCreated(s: Subaccount) {
     </div>
   </div>
 
-  <ContasNovaSubcontaWizard v-model:open="wizardOpen" @created="onCreated" />
+  <ContasNovaSubcontaWizard
+    v-model:open="wizardOpen"
+    @created="onCreated"
+  />
 </template>

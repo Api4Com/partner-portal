@@ -11,8 +11,12 @@ export function useRoadmap() {
 
   const activeItem = computed(() => items.value.find(i => i.id === activeItemId.value) ?? null)
 
-  const openItem = (id: string) => { activeItemId.value = id }
-  const closeItem = () => { activeItemId.value = null }
+  const openItem = (id: string) => {
+    activeItemId.value = id
+  }
+  const closeItem = () => {
+    activeItemId.value = null
+  }
 
   // TODO: interesse/beta gravavam no Supabase. Sem backend equivalente ainda,
   // mantemos só o update otimista local e avisamos que a ação é provisória.
