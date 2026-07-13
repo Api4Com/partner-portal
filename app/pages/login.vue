@@ -17,8 +17,13 @@ const state = reactive({
   phone: ''
 })
 
-// Mensagem de erro do pbxapi (LoopBack: { error: { message, code } }).
+// Mensagem de erro do BFF/pbxapi (LoopBack: { error: { message, code } }).
 function translateError(e: unknown): string {
+  // O BFF responde 403 quando a conta existe mas não é parceira.
+  if ((e as { statusCode?: number, status?: number })?.statusCode === 403
+    || (e as { status?: number })?.status === 403) {
+    return 'Esta conta não tem acesso ao Portal de Parceiros.'
+  }
   const error = (e as { data?: { error?: { message?: string, code?: string } } })?.data?.error
   if (error?.code === 'LOGIN_FAILED') return 'E-mail ou senha incorretos.'
   if (error?.code === 'LOGIN_FAILED_EMAIL_NOT_VERIFIED') return 'Confirme seu e-mail antes de entrar.'

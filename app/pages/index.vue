@@ -14,7 +14,7 @@ interface Summary {
 }
 
 const toast = useToast()
-const { user, bffFetch, refresh } = useAuth()
+const { user, bffFetch } = useAuth()
 const DAY = 86400000
 
 const search = ref('')
@@ -85,9 +85,8 @@ const kpis = computed(() => {
 
 async function onCreated(s: Subaccount) {
   toast.add({ title: 'Subconta criada', description: s.name, icon: 'i-lucide-circle-check', color: 'success' })
-  // A nova subconta só entra no escopo num token novo (allowedCustomerIds é
-  // recomputado): renova o JWT e recarrega a lista.
-  await refresh()
+  // O escopo das subcontas é derivado no BFF a cada request: basta recarregar
+  // a lista para a nova subconta aparecer.
   await load()
 }
 </script>

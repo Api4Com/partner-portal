@@ -14,7 +14,6 @@ interface BffCall {
   durationSeconds: number
   number: string | null
   cause: 'answered' | 'no_answer' | 'busy' | 'failed' | 'canceled'
-  recordingUrl: string | null
 }
 interface CallsPage { data: BffCall[], total: number, page: number, pageSize: number, pages: number }
 interface Summary {
@@ -34,7 +33,6 @@ interface ReportRow {
   duration: number
   number: string
   cause: HangupCause | null
-  recording: string | null
 }
 
 // O BFF devolve a causa em inglês; o badge da UI usa os rótulos PT.
@@ -149,8 +147,7 @@ function toRow(c: BffCall): ReportRow {
     date: c.date ?? '',
     duration: c.durationSeconds,
     number: c.number ?? '',
-    cause: CAUSE_EN_PT[c.cause] ?? 'falha',
-    recording: c.recordingUrl
+    cause: CAUSE_EN_PT[c.cause] ?? 'falha'
   }
 }
 
@@ -223,8 +220,7 @@ async function loadNoCalls() {
         date: '',
         duration: 0,
         number: '',
-        cause: null,
-        recording: null
+        cause: null
       })
     }
   }
@@ -377,7 +373,7 @@ async function exportCsv() {
   } while (p <= pages)
   rows.push(...noCallRows.value)
 
-  const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento', 'Link da gravação']
+  const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento']
   const lines = rows.map(c => [
     c.userName ?? '',
     c.subName ?? '',
@@ -385,7 +381,6 @@ async function exportCsv() {
     c.duration || '',
     c.number,
     c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação',
-    c.recording ?? ''
   ].map(csvCell).join(';'))
 
   const csv = [headers.map(csvCell).join(';'), ...lines].join('\r\n')
@@ -526,7 +521,7 @@ async function exportCsv() {
 
         <div class="overflow-x-auto">
           <table class="w-full min-w-[900px] border-collapse">
-            <caption class="sr-only">Detalhamento de chamadas com usuário, data, duração, número discado, causa de desligamento e gravação</caption>
+            <caption class="sr-only">Detalhamento de chamadas com usuário, data, duração, número discado e causa de desligamento</caption>
             <thead>
               <tr class="bg-muted/50">
                 <th scope="col" class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
@@ -549,7 +544,6 @@ async function exportCsv() {
                 </th>
                 <th scope="col" class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Número discado</th>
                 <th scope="col" class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Causa do desligamento</th>
-                <th scope="col" class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">Gravação</th>
               </tr>
             </thead>
             <tbody>
@@ -574,23 +568,9 @@ async function exportCsv() {
                   <UBadge v-if="c.cause" :color="CAUSE_BADGE[c.cause].color" variant="subtle">{{ CAUSE_BADGE[c.cause].label }}</UBadge>
                   <UBadge v-else color="neutral" variant="subtle">Sem ligação</UBadge>
                 </td>
-                <td class="py-3 pl-3.5 pr-[22px] text-right">
-                  <UButton
-                    v-if="c.recording"
-                    :to="c.recording"
-                    target="_blank"
-                    color="neutral"
-                    variant="outline"
-                    size="xs"
-                    icon="i-lucide-play"
-                  >
-                    Ouvir
-                  </UButton>
-                  <span v-else class="text-xs text-dimmed">—</span>
-                </td>
               </tr>
               <tr v-if="pagedCalls.length === 0" class="border-t border-default">
-                <td colspan="6" class="px-[22px] py-12 text-center">
+                <td colspan="5" class="px-[22px] py-12 text-center">
                   <p class="text-[13px] text-dimmed">{{ loading ? 'Carregando…' : (errorMsg || 'Nenhuma chamada encontrada com os filtros aplicados.') }}</p>
                   <UButton v-if="hasActiveFilters && !loading" class="mt-2.5" color="neutral" variant="outline" size="sm" icon="i-lucide-x" @click="clearFilters">
                     Limpar filtros
