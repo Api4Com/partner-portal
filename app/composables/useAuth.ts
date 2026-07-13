@@ -12,14 +12,6 @@ export interface PbxUser {
   organizationId?: string
 }
 
-export interface SignupPayload {
-  name: string
-  organizationName: string
-  email: string
-  password: string
-  phone: string
-}
-
 // POST /users/login → sessão opaca do pbx (403 = conta não é parceira).
 interface LoginResponse {
   accessToken: string
@@ -56,25 +48,6 @@ export function useAuth() {
     await fetchUser()
   }
 
-  // pbxapi não auto-loga no cadastro: exige verificação de e-mail antes do login.
-  async function signup(payload: SignupPayload) {
-    // reCAPTCHA v3: o BFF em `enforce` rejeita o cadastro sem token (RECAPTCHA_MISSING).
-    // Em `observe`/sem chave, executeRecaptcha resolve null e o cadastro segue.
-    const recaptchaToken = await executeRecaptcha('signup')
-    return $fetch<{ status: number, message: string }>('/accounts/signup', {
-      baseURL: bffBase,
-      method: 'POST',
-      body: {
-        name: payload.name,
-        organization_name: payload.organizationName,
-        email: payload.email,
-        password: payload.password,
-        phone: payload.phone,
-        recaptchaToken
-      }
-    })
-  }
-
   // Única fonte do usuário logado: GET /users/me com o Bearer da sessão.
   async function fetchUser(): Promise<PbxUser | null> {
     if (!accessToken.value) {
@@ -109,6 +82,10 @@ export function useAuth() {
   // Em 401 a sessão acabou (não há refresh): limpa e manda para o /login.
   async function bffFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
     try {
+      // O cast é necessário: `$fetch<T>` devolve `TypedInternalResponse<…, T>`, que o
+      // TS não consegue provar ser `T` quando `T` é um genérico do chamador (ele pode
+      // ser instanciado com qualquer coisa). Aqui as rotas são do BFF, não do Nitro —
+      // não há tipagem interna a inferir, então `T` é o contrato de fato.
       return await $fetch<T>(path, {
         baseURL: bffBase,
         ...opts,
@@ -116,7 +93,7 @@ export function useAuth() {
           ...(opts.headers as Record<string, string> | undefined),
           ...(accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {})
         }
-      })
+      }) as T
     } catch (err) {
       if ((err as { response?: { status?: number } })?.response?.status === 401) {
         clearSession()
@@ -126,5 +103,5 @@ export function useAuth() {
     }
   }
 
-  return { token: accessToken, user, login, signup, fetchUser, logout, bffFetch }
+  return { token: accessToken, user, login, fetchUser, logout, bffFetch }
 }

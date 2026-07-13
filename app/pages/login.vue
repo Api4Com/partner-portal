@@ -1,21 +1,15 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const { login, signup } = useAuth()
+const { login } = useAuth()
 
-type Mode = 'login' | 'signup'
-const mode = ref<Mode>('login')
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
-const confirmSent = ref(false)
 const showPassword = ref(false)
 
 const state = reactive({
-  fullName: '',
-  company: '',
   email: '',
-  password: '',
-  phone: ''
+  password: ''
 })
 
 // Mensagem de erro do BFF/pbxapi (LoopBack: { error: { message, code } }).
@@ -38,19 +32,8 @@ async function onSubmit() {
   errorMsg.value = null
   loading.value = true
   try {
-    if (mode.value === 'login') {
-      await login(state.email, state.password)
-      await navigateTo('/')
-    } else {
-      await signup({
-        name: state.fullName,
-        organizationName: state.company,
-        email: state.email,
-        password: state.password,
-        phone: state.phone.replace(/\D/g, '')
-      })
-      confirmSent.value = true
-    }
+    await login(state.email, state.password)
+    await navigateTo('/')
   } catch (e) {
     errorMsg.value = translateError(e)
   } finally {
@@ -58,13 +41,10 @@ async function onSubmit() {
   }
 }
 
-// SIGNUP DESABILITADO (temporário): o cadastro não é feito por este portal por ora.
-// Para reativar, descomente este `toggleMode` e o bloco "Ainda não tem conta?" no
-// template. O restante do fluxo (signup em onSubmit, campos e reCAPTCHA) segue pronto.
-// function toggleMode() {
-//   mode.value = mode.value === 'login' ? 'signup' : 'login'
-//   errorMsg.value = null
-// }
+// Não há cadastro por este portal: o BFF removeu o `POST /accounts/signup`, e a conta
+// parceira nasce pelo signup normal do api4com-portal + habilitação pelo time interno.
+// O formulário de cadastro (e o reCAPTCHA que o alimentava) saiu junto — mantê-lo seria
+// oferecer um caminho que responde 404.
 
 // Destaques do painel de marca
 const HIGHLIGHTS = [
@@ -171,142 +151,73 @@ onBeforeUnmount(() => {
     <!-- Formulário -->
     <div class="flex items-center justify-center bg-default p-6">
       <div class="w-full max-w-sm">
-        <template v-if="confirmSent">
-          <div class="space-y-3 rounded-2xl border border-default bg-elevated/50 p-6 text-center">
-            <UIcon
-              name="i-lucide-circle-check"
-              class="mx-auto h-9 w-9 text-success"
-            />
-            <h2 class="text-lg font-bold">
-              Confirme seu e-mail
-            </h2>
-            <p class="text-sm text-muted">
-              Enviamos um link de confirmação para <strong>{{ state.email }}</strong>. Após confirmar,
-              volte e faça login.
-            </p>
-            <UButton
-              variant="link"
-              @click="confirmSent = false; mode = 'login'"
-            >
-              Voltar para o login
-            </UButton>
-          </div>
-        </template>
+        <h2 class="text-2xl font-bold tracking-tight">
+          Acesse o portal
+        </h2>
+        <p class="mt-1 text-sm text-muted">
+          Entre para gerenciar suas subcontas e acompanhar a plataforma.
+        </p>
 
-        <template v-else>
-          <h2 class="text-2xl font-bold tracking-tight">
-            {{ mode === 'login' ? 'Acesse o portal' : 'Crie sua conta' }}
-          </h2>
-          <p class="mt-1 text-sm text-muted">
-            {{ mode === 'login'
-              ? 'Entre para gerenciar suas subcontas e acompanhar a plataforma.'
-              : 'Cadastre-se como parceiro para gerenciar suas subcontas e acessar a plataforma.' }}
-          </p>
-
-          <UForm
-            :state="state"
-            class="mt-6 space-y-3"
-            @submit="onSubmit"
-          >
-            <template v-if="mode === 'signup'">
-              <UFormField name="fullName">
-                <UInput
-                  v-model="state.fullName"
-                  icon="i-lucide-user"
-                  placeholder="Seu nome"
-                  size="lg"
-                  class="w-full"
-                  required
-                />
-              </UFormField>
-              <UFormField name="company">
-                <UInput
-                  v-model="state.company"
-                  icon="i-lucide-building-2"
-                  placeholder="Empresa / Revenda"
-                  size="lg"
-                  class="w-full"
-                  required
-                />
-              </UFormField>
-              <UFormField name="phone">
-                <UInput
-                  v-model="state.phone"
-                  type="tel"
-                  icon="i-lucide-phone"
-                  placeholder="Telefone com DDD"
-                  size="lg"
-                  class="w-full"
-                  required
-                />
-              </UFormField>
-            </template>
-
-            <UFormField name="email">
-              <UInput
-                v-model="state.email"
-                type="email"
-                icon="i-lucide-mail"
-                placeholder="E-mail"
-                size="lg"
-                class="w-full"
-                required
-              />
-            </UFormField>
-            <UFormField name="password">
-              <UInput
-                v-model="state.password"
-                :type="showPassword ? 'text' : 'password'"
-                icon="i-lucide-lock"
-                placeholder="Senha"
-                size="lg"
-                class="w-full"
-                :ui="{ trailing: 'pe-1' }"
-                required
-              >
-                <template #trailing>
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    size="sm"
-                    :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                    :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
-                    :aria-pressed="showPassword"
-                    tabindex="-1"
-                    @click="showPassword = !showPassword"
-                  />
-                </template>
-              </UInput>
-            </UFormField>
-
-            <UAlert
-              v-if="errorMsg"
-              color="error"
-              variant="subtle"
-              :title="errorMsg"
-              icon="i-lucide-triangle-alert"
-            />
-
-            <UButton
-              type="submit"
-              :loading="loading"
-              block
+        <UForm
+          :state="state"
+          class="mt-6 space-y-3"
+          @submit="onSubmit"
+        >
+          <UFormField name="email">
+            <UInput
+              v-model="state.email"
+              type="email"
+              icon="i-lucide-mail"
+              placeholder="E-mail"
               size="lg"
-              icon="i-lucide-briefcase"
+              class="w-full"
+              required
+            />
+          </UFormField>
+          <UFormField name="password">
+            <UInput
+              v-model="state.password"
+              :type="showPassword ? 'text' : 'password'"
+              icon="i-lucide-lock"
+              placeholder="Senha"
+              size="lg"
+              class="w-full"
+              :ui="{ trailing: 'pe-1' }"
+              required
             >
-              {{ mode === 'login' ? 'Entrar' : 'Criar conta' }}
-            </UButton>
-          </UForm>
+              <template #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
+                  :aria-pressed="showPassword"
+                  tabindex="-1"
+                  @click="showPassword = !showPassword"
+                />
+              </template>
+            </UInput>
+          </UFormField>
 
-          <!-- SIGNUP DESABILITADO (temporário) — reativar quando o portal aceitar cadastro:
-          <p class="mt-6 text-center text-sm text-muted">
-            {{ mode === 'login' ? 'Ainda não tem conta?' : 'Já tem conta?' }}
-            <UButton variant="link" class="px-1" @click="toggleMode">
-              {{ mode === 'login' ? 'Cadastre-se' : 'Faça login' }}
-            </UButton>
-          </p>
-          -->
-        </template>
+          <UAlert
+            v-if="errorMsg"
+            color="error"
+            variant="subtle"
+            :title="errorMsg"
+            icon="i-lucide-triangle-alert"
+          />
+
+          <UButton
+            type="submit"
+            :loading="loading"
+            block
+            size="lg"
+            icon="i-lucide-briefcase"
+          >
+            Entrar
+          </UButton>
+        </UForm>
       </div>
     </div>
   </div>
