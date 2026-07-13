@@ -117,7 +117,12 @@ onBeforeUnmount(() => clearTimeout(replyTimer))
 <template>
   <PortalTopbar title="Agente API4COM">
     <template #right>
-      <UBadge color="primary" variant="subtle">Beta</UBadge>
+      <UBadge
+        color="primary"
+        variant="subtle"
+      >
+        Beta
+      </UBadge>
     </template>
   </PortalTopbar>
 
@@ -126,11 +131,19 @@ onBeforeUnmount(() => clearTimeout(replyTimer))
     <div class="flex-1 overflow-y-auto">
       <div class="mx-auto w-full max-w-3xl px-6 py-7">
         <!-- Estado vazio -->
-        <div v-if="empty" class="flex flex-col items-center pt-8 text-center">
+        <div
+          v-if="empty"
+          class="flex flex-col items-center pt-8 text-center"
+        >
           <div class="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-900/25">
-            <UIcon name="i-lucide-sparkles" class="h-7 w-7" />
+            <UIcon
+              name="i-lucide-sparkles"
+              class="h-7 w-7"
+            />
           </div>
-          <h1 class="mt-4 text-2xl font-bold tracking-tight">Olá, {{ CONTA_PRINCIPAL.name }} 👋</h1>
+          <h1 class="mt-4 text-2xl font-bold tracking-tight">
+            Olá, {{ CONTA_PRINCIPAL.name }} 👋
+          </h1>
           <p class="mt-2 max-w-md text-sm leading-relaxed text-muted">
             Sou o <strong class="text-default">Agente API4COM</strong>. Peça informações ou execute ações
             da sua operação em linguagem natural — chamadas, saldo, relatórios, ramais e gravações.
@@ -145,7 +158,10 @@ onBeforeUnmount(() => clearTimeout(replyTimer))
               @click="send(s.prompt)"
             >
               <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600">
-                <UIcon :name="s.icon" class="h-[17px] w-[17px]" />
+                <UIcon
+                  :name="s.icon"
+                  class="h-[17px] w-[17px]"
+                />
               </span>
               <span class="text-[13px] font-medium">{{ s.label }}</span>
             </button>
@@ -153,16 +169,31 @@ onBeforeUnmount(() => clearTimeout(replyTimer))
         </div>
 
         <!-- Mensagens -->
-        <div v-else class="flex flex-col gap-4">
-          <div v-for="m in messages" :key="m.id">
-            <div v-if="m.role === 'user'" class="flex justify-end">
+        <div
+          v-else
+          class="flex flex-col gap-4"
+        >
+          <div
+            v-for="m in messages"
+            :key="m.id"
+          >
+            <div
+              v-if="m.role === 'user'"
+              class="flex justify-end"
+            >
               <div class="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-inverted">
                 {{ m.content }}
               </div>
             </div>
-            <div v-else class="flex items-start gap-2.5">
+            <div
+              v-else
+              class="flex items-start gap-2.5"
+            >
               <div class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white">
-                <UIcon name="i-lucide-sparkles" class="h-4 w-4" />
+                <UIcon
+                  name="i-lucide-sparkles"
+                  class="h-4 w-4"
+                />
               </div>
               <div class="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tl-md border border-default bg-default px-4 py-2.5 text-sm leading-relaxed shadow-sm">
                 {{ m.content }}
@@ -171,14 +202,29 @@ onBeforeUnmount(() => clearTimeout(replyTimer))
           </div>
 
           <!-- Digitando -->
-          <div v-if="typing" class="flex items-start gap-2.5">
+          <div
+            v-if="typing"
+            class="flex items-start gap-2.5"
+          >
             <div class="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white">
-              <UIcon name="i-lucide-sparkles" class="h-4 w-4" />
+              <UIcon
+                name="i-lucide-sparkles"
+                class="h-4 w-4"
+              />
             </div>
             <div class="flex items-center gap-1 rounded-2xl rounded-tl-md border border-default bg-default px-4 py-3.5 shadow-sm">
-              <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" style="animation-delay:0ms" />
-              <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" style="animation-delay:150ms" />
-              <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" style="animation-delay:300ms" />
+              <span
+                class="h-1.5 w-1.5 animate-bounce rounded-full bg-muted"
+                style="animation-delay:0ms"
+              />
+              <span
+                class="h-1.5 w-1.5 animate-bounce rounded-full bg-muted"
+                style="animation-delay:150ms"
+              />
+              <span
+                class="h-1.5 w-1.5 animate-bounce rounded-full bg-muted"
+                style="animation-delay:300ms"
+              />
             </div>
           </div>
 

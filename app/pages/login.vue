@@ -8,6 +8,7 @@ const mode = ref<Mode>('login')
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 const confirmSent = ref(false)
+const showPassword = ref(false)
 
 const state = reactive({
   fullName: '',
@@ -57,10 +58,13 @@ async function onSubmit() {
   }
 }
 
-function toggleMode() {
-  mode.value = mode.value === 'login' ? 'signup' : 'login'
-  errorMsg.value = null
-}
+// SIGNUP DESABILITADO (temporário): o cadastro não é feito por este portal por ora.
+// Para reativar, descomente este `toggleMode` e o bloco "Ainda não tem conta?" no
+// template. O restante do fluxo (signup em onSubmit, campos e reCAPTCHA) segue pronto.
+// function toggleMode() {
+//   mode.value = mode.value === 'login' ? 'signup' : 'login'
+//   errorMsg.value = null
+// }
 
 // Destaques do painel de marca
 const HIGHLIGHTS = [
@@ -80,7 +84,10 @@ onMounted(() => {
   function step() {
     const word = COM_WORDS[wordIndex]!
     if (!deleting && typed.value === word) {
-      typeTimer = setTimeout(() => { deleting = true; step() }, 1600)
+      typeTimer = setTimeout(() => {
+        deleting = true
+        step()
+      }, 1600)
       return
     }
     if (deleting && typed.value === '') {
@@ -96,7 +103,9 @@ onMounted(() => {
   step()
 })
 
-onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
+onBeforeUnmount(() => {
+  if (typeTimer) clearTimeout(typeTimer)
+})
 </script>
 
 <template>
@@ -107,11 +116,18 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
 
       <div class="relative flex items-center gap-3">
         <div class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 ring-1 ring-inset ring-white/15">
-          <UIcon name="i-lucide-radio" class="h-5 w-5" />
+          <UIcon
+            name="i-lucide-radio"
+            class="h-5 w-5"
+          />
         </div>
         <div class="leading-tight">
-          <p class="font-semibold tracking-tight">API4COM</p>
-          <p class="text-xs text-brand-200">Portal de Parceiros</p>
+          <p class="font-semibold tracking-tight">
+            API4COM
+          </p>
+          <p class="text-xs text-brand-200">
+            Portal de Parceiros
+          </p>
         </div>
       </div>
 
@@ -133,8 +149,15 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
         </p>
 
         <ul class="space-y-2.5 pt-1 text-sm text-brand-50">
-          <li v-for="t in HIGHLIGHTS" :key="t" class="flex items-center gap-2.5">
-            <UIcon name="i-lucide-circle-check" class="h-4 w-4 shrink-0 text-brand-400" />
+          <li
+            v-for="t in HIGHLIGHTS"
+            :key="t"
+            class="flex items-center gap-2.5"
+          >
+            <UIcon
+              name="i-lucide-circle-check"
+              class="h-4 w-4 shrink-0 text-brand-400"
+            />
             {{ t }}
           </li>
         </ul>
@@ -150,13 +173,21 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
       <div class="w-full max-w-sm">
         <template v-if="confirmSent">
           <div class="space-y-3 rounded-2xl border border-default bg-elevated/50 p-6 text-center">
-            <UIcon name="i-lucide-circle-check" class="mx-auto h-9 w-9 text-success" />
-            <h2 class="text-lg font-bold">Confirme seu e-mail</h2>
+            <UIcon
+              name="i-lucide-circle-check"
+              class="mx-auto h-9 w-9 text-success"
+            />
+            <h2 class="text-lg font-bold">
+              Confirme seu e-mail
+            </h2>
             <p class="text-sm text-muted">
               Enviamos um link de confirmação para <strong>{{ state.email }}</strong>. Após confirmar,
               volte e faça login.
             </p>
-            <UButton variant="link" @click="confirmSent = false; mode = 'login'">
+            <UButton
+              variant="link"
+              @click="confirmSent = false; mode = 'login'"
+            >
               Voltar para o login
             </UButton>
           </div>
@@ -172,39 +203,109 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
               : 'Cadastre-se como parceiro para gerenciar suas subcontas e acessar a plataforma.' }}
           </p>
 
-          <UForm :state="state" class="mt-6 space-y-3" @submit="onSubmit">
+          <UForm
+            :state="state"
+            class="mt-6 space-y-3"
+            @submit="onSubmit"
+          >
             <template v-if="mode === 'signup'">
               <UFormField name="fullName">
-                <UInput v-model="state.fullName" icon="i-lucide-user" placeholder="Seu nome" size="lg" class="w-full" required />
+                <UInput
+                  v-model="state.fullName"
+                  icon="i-lucide-user"
+                  placeholder="Seu nome"
+                  size="lg"
+                  class="w-full"
+                  required
+                />
               </UFormField>
               <UFormField name="company">
-                <UInput v-model="state.company" icon="i-lucide-building-2" placeholder="Empresa / Revenda" size="lg" class="w-full" required />
+                <UInput
+                  v-model="state.company"
+                  icon="i-lucide-building-2"
+                  placeholder="Empresa / Revenda"
+                  size="lg"
+                  class="w-full"
+                  required
+                />
               </UFormField>
               <UFormField name="phone">
-                <UInput v-model="state.phone" type="tel" icon="i-lucide-phone" placeholder="Telefone com DDD" size="lg" class="w-full" required />
+                <UInput
+                  v-model="state.phone"
+                  type="tel"
+                  icon="i-lucide-phone"
+                  placeholder="Telefone com DDD"
+                  size="lg"
+                  class="w-full"
+                  required
+                />
               </UFormField>
             </template>
 
             <UFormField name="email">
-              <UInput v-model="state.email" type="email" icon="i-lucide-mail" placeholder="E-mail" size="lg" class="w-full" required />
+              <UInput
+                v-model="state.email"
+                type="email"
+                icon="i-lucide-mail"
+                placeholder="E-mail"
+                size="lg"
+                class="w-full"
+                required
+              />
             </UFormField>
             <UFormField name="password">
-              <UInput v-model="state.password" type="password" icon="i-lucide-lock" placeholder="Senha" size="lg" class="w-full" required />
+              <UInput
+                v-model="state.password"
+                :type="showPassword ? 'text' : 'password'"
+                icon="i-lucide-lock"
+                placeholder="Senha"
+                size="lg"
+                class="w-full"
+                :ui="{ trailing: 'pe-1' }"
+                required
+              >
+                <template #trailing>
+                  <UButton
+                    color="neutral"
+                    variant="link"
+                    size="sm"
+                    :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                    :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
+                    :aria-pressed="showPassword"
+                    tabindex="-1"
+                    @click="showPassword = !showPassword"
+                  />
+                </template>
+              </UInput>
             </UFormField>
 
-            <UAlert v-if="errorMsg" color="error" variant="subtle" :title="errorMsg" icon="i-lucide-triangle-alert" />
+            <UAlert
+              v-if="errorMsg"
+              color="error"
+              variant="subtle"
+              :title="errorMsg"
+              icon="i-lucide-triangle-alert"
+            />
 
-            <UButton type="submit" :loading="loading" block size="lg" icon="i-lucide-briefcase">
+            <UButton
+              type="submit"
+              :loading="loading"
+              block
+              size="lg"
+              icon="i-lucide-briefcase"
+            >
               {{ mode === 'login' ? 'Entrar' : 'Criar conta' }}
             </UButton>
           </UForm>
 
+          <!-- SIGNUP DESABILITADO (temporário) — reativar quando o portal aceitar cadastro:
           <p class="mt-6 text-center text-sm text-muted">
             {{ mode === 'login' ? 'Ainda não tem conta?' : 'Já tem conta?' }}
             <UButton variant="link" class="px-1" @click="toggleMode">
               {{ mode === 'login' ? 'Cadastre-se' : 'Faça login' }}
             </UButton>
           </p>
+          -->
         </template>
       </div>
     </div>

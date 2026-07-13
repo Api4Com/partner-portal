@@ -35,7 +35,10 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
           :class="profile === p.id ? 'bg-primary text-inverted shadow-sm' : 'text-muted hover:text-default'"
           @click="profile = p.id"
         >
-          <UIcon :name="p.icon" class="h-4 w-4" />
+          <UIcon
+            :name="p.icon"
+            class="h-4 w-4"
+          />
           <span class="hidden md:inline">{{ p.label }}</span>
           <span class="md:hidden">{{ p.hint }}</span>
         </button>
@@ -48,18 +51,35 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
       <!-- Dashboard -->
       <section class="space-y-5">
         <div class="flex flex-col gap-1">
-          <p class="text-[11px] font-semibold uppercase tracking-wider text-primary">Visão Unificada</p>
-          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Portal de Roadmap para Parceiros</h1>
-          <p class="max-w-2xl text-sm text-muted">{{ dashDescription }}</p>
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            Visão Unificada
+          </p>
+          <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">
+            Portal de Roadmap para Parceiros
+          </h1>
+          <p class="max-w-2xl text-sm text-muted">
+            {{ dashDescription }}
+          </p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <UCard v-for="kpi in KPIS" :key="kpi.id" :ui="{ body: 'p-5' }">
+          <UCard
+            v-for="kpi in KPIS"
+            :key="kpi.id"
+            :ui="{ body: 'p-5' }"
+          >
             <div class="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-inset ring-brand-100">
-              <UIcon :name="kpi.icon" class="h-5 w-5" />
+              <UIcon
+                :name="kpi.icon"
+                class="h-5 w-5"
+              />
             </div>
-            <p class="mt-4 text-2xl font-bold tracking-tight">{{ kpi.value }}</p>
-            <p class="mt-0.5 text-xs font-medium text-muted">{{ kpi.label }}</p>
+            <p class="mt-4 text-2xl font-bold tracking-tight">
+              {{ kpi.value }}
+            </p>
+            <p class="mt-0.5 text-xs font-medium text-muted">
+              {{ kpi.label }}
+            </p>
           </UCard>
         </div>
       </section>
@@ -72,18 +92,29 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
               <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            <h2 class="text-lg font-semibold">Em desenvolvimento agora</h2>
+            <h2 class="text-lg font-semibold">
+              Em desenvolvimento agora
+            </h2>
             <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
               {{ nowItems.length }}
             </span>
           </div>
-          <p class="text-sm text-muted">O que o time já está construindo · Beta Fechado.</p>
+          <p class="text-sm text-muted">
+            O que o time já está construindo · Beta Fechado.
+          </p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <RoadmapCard v-for="item in nowItems" :key="item.id" :item="item" />
+          <RoadmapCard
+            v-for="item in nowItems"
+            :key="item.id"
+            :item="item"
+          />
         </div>
-        <p v-if="nowItems.length === 0" class="rounded-2xl border border-dashed border-default px-4 py-10 text-center text-xs text-dimmed">
+        <p
+          v-if="nowItems.length === 0"
+          class="rounded-2xl border border-dashed border-default px-4 py-10 text-center text-xs text-dimmed"
+        >
           Nada em desenvolvimento ativo no momento.
         </p>
       </section>
@@ -92,8 +123,13 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
       <section class="space-y-4">
         <div class="flex flex-col gap-1">
           <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-lightbulb" class="h-5 w-5 text-amber-500" />
-            <h2 class="text-lg font-semibold">No radar</h2>
+            <UIcon
+              name="i-lucide-lightbulb"
+              class="h-5 w-5 text-amber-500"
+            />
+            <h2 class="text-lg font-semibold">
+              No radar
+            </h2>
             <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted ring-1 ring-inset ring-default">
               {{ radarItems.length }}
             </span>
@@ -105,9 +141,16 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
 
         <div class="rounded-2xl border border-dashed border-default bg-muted/40 p-4">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <RoadmapCard v-for="item in radarItems" :key="item.id" :item="item" />
+            <RoadmapCard
+              v-for="item in radarItems"
+              :key="item.id"
+              :item="item"
+            />
           </div>
-          <p v-if="radarItems.length === 0" class="px-2 py-8 text-center text-xs text-dimmed">
+          <p
+            v-if="radarItems.length === 0"
+            class="px-2 py-8 text-center text-xs text-dimmed"
+          >
             Nenhuma ideia no radar por enquanto.
           </p>
         </div>

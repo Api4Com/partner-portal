@@ -1,0 +1,32 @@
+name: Reusable Workflow (Test and Quality)
+
+on:
+  workflow_call
+
+jobs:
+  # Portal Nuxt (npm): sem suíte de testes hoje — o gate de qualidade é
+  # lint + typecheck. NÃO usa eslint-annotate-action (o BFF anota o PR porque
+  # tem lint:report; aqui o `npm run lint` já reprova o job).
+  code-quality:
+    name: Code Quality
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck

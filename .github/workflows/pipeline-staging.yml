@@ -1,0 +1,30 @@
+name: Pipeline (Staging)
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+  # Publicação da imagem de staging é MANUAL: dispare este workflow e informe a
+  # tag (default 'staging'). Nenhum push de branch publica staging automaticamente.
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Tag da imagem a publicar no ECR'
+        required: true
+        default: 'staging'
+
+jobs:
+  test-and-quality:
+    uses: ./.github/workflows/reusable-workflow-test-and-quality.yml
+
+  # Builda e publica partner-portal:<tag> no ECR us-east-1. Não faz deploy no
+  # host -- subir é manual via scripts/deploy.sh (ver deploy/runbooks/).
+  build-image:
+    # Só no disparo manual (workflow_dispatch). Em PR pra main roda só o
+    # test-and-quality: publicar imagem antes do merge não faz sentido.
+    if: github.event_name == 'workflow_dispatch'
+    needs: [test-and-quality]
+    uses: ./.github/workflows/reusable-workflow-docker-image-build.yml
+    secrets: inherit
+    with:
+      image_tag: ${{ inputs.image_tag }}

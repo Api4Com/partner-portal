@@ -15,21 +15,16 @@ services:
       - HOST=0.0.0.0
       - PORT=3000
 
-      # @nuxtjs/supabase exige estas vars no boot. Placeholders por enquanto —
-      # serão substituídos quando o front passar a consumir o bff-portal.
-      - SUPABASE_URL=http://localhost:54321
-      - SUPABASE_KEY=placeholder-anon-key
-
       # URL do BFF para o NAVEGADOR (host). O browser não resolve nomes de
-      # container, então aponta para a porta exposta do bff-portal no host.
+      # container, então aponta para a porta exposta do partner-portal-bff no host.
       - NUXT_PUBLIC_BFF_BASE_URL=http://localhost:3005
-      # URL do BFF para chamadas SSR (dentro da rede docker, via alias `bff`).
-      - BFF_INTERNAL_URL=http://bff:3000
+      # URL do BFF para chamadas SSR (dentro da rede docker, via container `partner-portal-bff`).
+      - BFF_INTERNAL_URL=http://partner-portal-bff:3000
     networks:
       - default
-      - platform_shared
+      - api4com-network
 
 networks:
-  platform_shared:
-    name: platform_shared
+  api4com-network:
+    name: api4com-network
     external: true

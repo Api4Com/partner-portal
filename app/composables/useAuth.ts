@@ -28,7 +28,14 @@ interface LoginResponse {
 }
 
 export function useAuth() {
-  const cookieOpts = { sameSite: 'lax' as const, path: '/', maxAge: 60 * 60 * 24 * 7 }
+  const cookieOpts = {
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+    // Em produção o token só trafega por HTTPS; em dev (http://localhost) `secure`
+    // impediria o cookie de ser gravado.
+    secure: !import.meta.dev
+  }
   const accessToken = useCookie<string | null>('access_token', cookieOpts)
   const user = useState<PbxUser | null>('auth-user', () => null)
 
@@ -51,6 +58,9 @@ export function useAuth() {
 
   // pbxapi não auto-loga no cadastro: exige verificação de e-mail antes do login.
   async function signup(payload: SignupPayload) {
+    // reCAPTCHA v3: o BFF em `enforce` rejeita o cadastro sem token (RECAPTCHA_MISSING).
+    // Em `observe`/sem chave, executeRecaptcha resolve null e o cadastro segue.
+    const recaptchaToken = await executeRecaptcha('signup')
     return $fetch<{ status: number, message: string }>('/accounts/signup', {
       baseURL: bffBase,
       method: 'POST',
@@ -59,7 +69,8 @@ export function useAuth() {
         organization_name: payload.organizationName,
         email: payload.email,
         password: payload.password,
-        phone: payload.phone
+        phone: payload.phone,
+        recaptchaToken
       }
     })
   }

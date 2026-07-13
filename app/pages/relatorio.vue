@@ -17,8 +17,13 @@ interface BffCall {
 }
 interface CallsPage { data: BffCall[], total: number, page: number, pageSize: number, pages: number }
 interface Summary {
-  subaccounts: number, usersTotal: number, active7d: number, inactive: number
-  volumeMinutes: number, answerRate: number, callsInPeriod: number
+  subaccounts: number
+  usersTotal: number
+  active7d: number
+  inactive: number
+  volumeMinutes: number
+  answerRate: number
+  callsInPeriod: number
 }
 interface SubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
 
@@ -45,8 +50,14 @@ const CAUSE_EN_PT: Record<BffCall['cause'], HangupCause> = {
 }
 
 const { bffFetch } = useAuth()
+const toast = useToast()
 const DAY = 86400000
 const PAGE_SIZE = 15
+// Teto do fetch de usuários "sem chamada" por subconta e do export (evita loop/rows
+// infinitos). Se um dia estourar, avisamos em vez de truncar em silêncio.
+const USERS_FETCH_LIMIT = 1000
+const EXPORT_MAX_PAGES = 100
+const EXPORT_PAGE_SIZE = 500
 
 /* ----- filtros (mesma UX do mock; persistidos na URL) ----- */
 type Periodo = 'all' | 'today' | '7d' | '30d' | 'month' | 'custom'
@@ -91,7 +102,8 @@ const range = computed<{ from?: string, to?: string }>(() => {
     case 'all':
       return {}
     case 'today': {
-      const s = new Date(now); s.setHours(0, 0, 0, 0)
+      const s = new Date(now)
+      s.setHours(0, 0, 0, 0)
       return { from: iso(s), to: iso(now) }
     }
     case '7d':
@@ -126,7 +138,15 @@ const summary = ref<Summary | null>(null)
 const callsResp = ref<CallsPage | null>(null)
 const noCallRows = ref<ReportRow[]>([])
 const loading = ref(false)
+const exporting = ref(false)
 const errorMsg = ref('')
+
+// Sequências por loader: filtros mudam rápido e as respostas voltam fora de ordem.
+// Cada chamada captura seu número; só a mais recente escreve no estado (as antigas
+// são descartadas), evitando que uma resposta obsoleta sobrescreva a atual.
+let callsSeq = 0
+let summarySeq = 0
+let noCallsSeq = 0
 
 /** Monta a query comum (escopo + período). */
 function baseQuery(extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -160,18 +180,21 @@ async function loadSubaccounts() {
 }
 
 async function loadSummary() {
+  const seq = ++summarySeq
   try {
-    summary.value = await bffFetch<Summary>('/reports/summary', { query: baseQuery() })
+    const resp = await bffFetch<Summary>('/reports/summary', { query: baseQuery() })
+    if (seq === summarySeq) summary.value = resp
   } catch {
-    summary.value = null
+    if (seq === summarySeq) summary.value = null
   }
 }
 
 async function loadCalls() {
+  const seq = ++callsSeq
   loading.value = true
   errorMsg.value = ''
   try {
-    callsResp.value = await bffFetch<CallsPage>('/calls', {
+    const resp = await bffFetch<CallsPage>('/calls', {
       query: baseQuery({
         q: search.value.trim() || undefined,
         sort: sortKey.value,
@@ -180,11 +203,14 @@ async function loadCalls() {
         pageSize: PAGE_SIZE
       })
     })
+    if (seq !== callsSeq) return // resposta obsoleta: um load mais novo já está em andamento
+    callsResp.value = resp
   } catch {
+    if (seq !== callsSeq) return
     errorMsg.value = 'Falha ao carregar as chamadas.'
     callsResp.value = null
   } finally {
-    loading.value = false
+    if (seq === callsSeq) loading.value = false
   }
 }
 
@@ -198,13 +224,19 @@ async function loadNoCalls() {
     noCallRows.value = []
     return
   }
+  const seq = ++noCallsSeq
   const q = search.value.trim().toLowerCase()
   const rows: ReportRow[] = []
   for (const s of scopeSubs.value) {
     let users: SubUser[] = []
     try {
-      const r = await bffFetch<{ data: SubUser[] }>(`/subaccounts/${s.id}/users`, { query: { limit: 1000, ...range.value } })
+      const r = await bffFetch<{ data: SubUser[] }>(`/subaccounts/${s.id}/users`, { query: { limit: USERS_FETCH_LIMIT, ...range.value } })
       users = r.data ?? []
+      // Sem contrato de paginação neste endpoint: se vier no teto, pode haver mais
+      // usuários não listados — avisa em vez de esconder a truncagem.
+      if (users.length >= USERS_FETCH_LIMIT) {
+        console.warn(`[relatorio] subconta ${s.id}: lista de usuários pode estar truncada em ${USERS_FETCH_LIMIT}.`)
+      }
     } catch {
       users = []
     }
@@ -215,7 +247,9 @@ async function loadNoCalls() {
         id: `nocall-${s.id}-${u.id}`,
         subId: s.id,
         subName: s.name,
-        userId: u.email,
+        // userId = id do usuário (mesmo espaço de BffCall.userId) para o tint do
+        // avatar ficar consistente entre linhas de chamada e "sem ligação".
+        userId: u.id,
         userName: u.name,
         date: '',
         duration: 0,
@@ -224,7 +258,7 @@ async function loadNoCalls() {
       })
     }
   }
-  noCallRows.value = rows
+  if (seq === noCallsSeq) noCallRows.value = rows
 }
 
 /* ----- derivados para o template ----- */
@@ -321,7 +355,13 @@ function periodoChipLabel(): string {
 const activeFilterChips = computed(() => {
   const chips: { key: string, label: string, clear: () => void }[] = []
   if (periodo.value !== '30d') {
-    chips.push({ key: 'periodo', label: `Período: ${periodoChipLabel()}`, clear: () => { periodo.value = '30d' } })
+    chips.push({
+      key: 'periodo',
+      label: `Período: ${periodoChipLabel()}`,
+      clear: () => {
+        periodo.value = '30d'
+      }
+    })
   }
   for (const id of subSelection.value) {
     chips.push({
@@ -360,41 +400,64 @@ function csvCell(v: string | number): string {
 }
 
 async function exportCsv() {
-  const rows: ReportRow[] = []
-  let p = 1
-  let pages = 1
-  do {
-    const r = await bffFetch<CallsPage>('/calls', {
-      query: baseQuery({ q: search.value.trim() || undefined, sort: sortKey.value, order: sortDir.value, page: p, pageSize: 500 })
-    })
-    rows.push(...(r.data ?? []).map(toRow))
-    pages = r.pages || 1
-    p++
-  } while (p <= pages)
-  rows.push(...noCallRows.value)
+  if (exporting.value || total.value === 0) return
+  exporting.value = true
+  try {
+    const rows: ReportRow[] = []
+    let p = 1
+    let pages = 1
+    let truncated = false
+    do {
+      const r = await bffFetch<CallsPage>('/calls', {
+        query: baseQuery({ q: search.value.trim() || undefined, sort: sortKey.value, order: sortDir.value, page: p, pageSize: EXPORT_PAGE_SIZE })
+      })
+      rows.push(...(r.data ?? []).map(toRow))
+      pages = r.pages || 1
+      p++
+      // Teto de páginas: não trava o browser num export gigante. Se atingir, avisa.
+      if (p > EXPORT_MAX_PAGES && p <= pages) {
+        truncated = true
+        break
+      }
+    } while (p <= pages)
+    rows.push(...noCallRows.value)
 
-  const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento']
-  const lines = rows.map(c => [
-    c.userName ?? '',
-    c.subName ?? '',
-    c.date ? fmtCallDate(c.date) : 'Sem ligação',
-    c.duration || '',
-    c.number,
-    c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação',
-  ].map(csvCell).join(';'))
+    const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento']
+    const lines = rows.map(c => [
+      c.userName ?? '',
+      c.subName ?? '',
+      c.date ? fmtCallDate(c.date) : 'Sem ligação',
+      c.duration || '',
+      c.number,
+      c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação'
+    ].map(csvCell).join(';'))
 
-  const csv = [headers.map(csvCell).join(';'), ...lines].join('\r\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  const stamp = new Date().toISOString().slice(0, 10)
-  const scope = subSelection.value.length === 0
-    ? 'todas'
-    : subSelection.value.length === 1 ? subSelection.value[0]!.toLowerCase() : `${subSelection.value.length}-subcontas`
-  a.href = url
-  a.download = `relatorio-chamadas-${scope}-${stamp}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+    const csv = [headers.map(csvCell).join(';'), ...lines].join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const stamp = new Date().toISOString().slice(0, 10)
+    const scope = subSelection.value.length === 0
+      ? 'todas'
+      : subSelection.value.length === 1 ? subSelection.value[0]!.toLowerCase() : `${subSelection.value.length}-subcontas`
+    a.href = url
+    a.download = `relatorio-chamadas-${scope}-${stamp}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    if (truncated) {
+      toast.add({
+        title: 'Exportação parcial',
+        description: `Foram exportadas as primeiras ${EXPORT_MAX_PAGES * EXPORT_PAGE_SIZE} chamadas. Refine o filtro para exportar o restante.`,
+        icon: 'i-lucide-triangle-alert',
+        color: 'warning'
+      })
+    }
+  } catch {
+    toast.add({ title: 'Falha ao exportar', description: 'Não foi possível gerar o CSV. Tente novamente.', icon: 'i-lucide-triangle-alert', color: 'error' })
+  } finally {
+    exporting.value = false
+  }
 }
 </script>
 
@@ -406,23 +469,51 @@ async function exportCsv() {
       <!-- Cabeçalho -->
       <div class="mb-[22px] flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p class="mb-1.5 text-xs font-semibold tracking-wide text-primary">Portal do Parceiro</p>
-          <h1 class="mb-1 text-2xl font-bold tracking-tight sm:text-3xl">Relatório de chamadas</h1>
-          <p class="text-sm text-muted">Detalhamento de chamadas por subconta · KPIs e listagem com exportação</p>
+          <p class="mb-1.5 text-xs font-semibold tracking-wide text-primary">
+            Portal do Parceiro
+          </p>
+          <h1 class="mb-1 text-2xl font-bold tracking-tight sm:text-3xl">
+            Relatório de chamadas
+          </h1>
+          <p class="text-sm text-muted">
+            Detalhamento de chamadas por subconta · KPIs e listagem com exportação
+          </p>
         </div>
         <div class="flex flex-col items-stretch gap-2">
-          <UButton icon="i-lucide-download" color="neutral" variant="outline" :disabled="total === 0" @click="exportCsv">
-            Exportar CSV
+          <UButton
+            icon="i-lucide-download"
+            color="neutral"
+            variant="outline"
+            :disabled="total === 0 || exporting"
+            :loading="exporting"
+            @click="exportCsv"
+          >
+            {{ exporting ? 'Exportando…' : 'Exportar CSV' }}
           </UButton>
-          <UButton icon="i-lucide-plug-zap" color="primary" variant="soft" disabled>
+          <UButton
+            icon="i-lucide-plug-zap"
+            color="primary"
+            variant="soft"
+            disabled
+          >
             Acessar via MCP
-            <UBadge color="primary" variant="solid" size="xs" class="ml-1">Em breve</UBadge>
+            <UBadge
+              color="primary"
+              variant="solid"
+              size="xs"
+              class="ml-1"
+            >
+              Em breve
+            </UBadge>
           </UButton>
         </div>
       </div>
 
       <!-- Filtros (mesmo molde do detalhe da subconta) -->
-      <UCard class="mb-4" :ui="{ body: 'p-4' }">
+      <UCard
+        class="mb-4"
+        :ui="{ body: 'p-4' }"
+      >
         <div class="flex flex-wrap items-center gap-2.5">
           <UInput
             v-model="search"
@@ -442,15 +533,32 @@ async function exportCsv() {
             class="w-[240px]"
           >
             <template #default>
-              <span v-if="subSelection.length === 0" class="text-dimmed">Todas as subcontas</span>
-              <span v-else-if="subSelection.length === 1" class="truncate">{{ nameById.get(subSelection[0]!) ?? subSelection[0] }}</span>
+              <span
+                v-if="subSelection.length === 0"
+                class="text-dimmed"
+              >Todas as subcontas</span>
+              <span
+                v-else-if="subSelection.length === 1"
+                class="truncate"
+              >{{ nameById.get(subSelection[0]!) ?? subSelection[0] }}</span>
               <span v-else>{{ subSelection.length }} subcontas</span>
             </template>
           </USelectMenu>
           <UPopover>
-            <UButton color="neutral" variant="outline" icon="i-lucide-list-filter" trailing-icon="i-lucide-chevron-down">
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-list-filter"
+              trailing-icon="i-lucide-chevron-down"
+            >
               Filtrar
-              <UBadge v-if="activeFilterCount" color="primary" variant="solid" size="sm" class="ml-0.5">
+              <UBadge
+                v-if="activeFilterCount"
+                color="primary"
+                variant="solid"
+                size="sm"
+                class="ml-0.5"
+              >
                 {{ activeFilterCount }}
               </UBadge>
             </UButton>
@@ -458,7 +566,14 @@ async function exportCsv() {
               <div class="w-[300px] p-3.5">
                 <div class="mb-3 flex items-center justify-between">
                   <span class="text-[11px] font-semibold uppercase tracking-wider text-dimmed">Filtrar chamadas</span>
-                  <UButton v-if="activeFilterCount" color="neutral" variant="link" size="xs" class="-mr-2" @click="clearFilters">
+                  <UButton
+                    v-if="activeFilterCount"
+                    color="neutral"
+                    variant="link"
+                    size="xs"
+                    class="-mr-2"
+                    @click="clearFilters"
+                  >
                     Limpar tudo
                   </UButton>
                 </div>
@@ -469,14 +584,37 @@ async function exportCsv() {
                   :items="periodoItems"
                   :class="periodo === 'custom' ? 'mb-2.5' : ''"
                 />
-                <div v-if="periodo === 'custom'" class="space-y-2">
+                <div
+                  v-if="periodo === 'custom'"
+                  class="space-y-2"
+                >
                   <div class="flex items-center gap-2">
-                    <UInput v-model="customStart" type="date" :max="customEnd || undefined" size="sm" class="flex-1" aria-label="Data inicial" />
+                    <UInput
+                      v-model="customStart"
+                      type="date"
+                      :max="customEnd || undefined"
+                      size="sm"
+                      class="flex-1"
+                      aria-label="Data inicial"
+                    />
                     <span class="text-xs text-dimmed">até</span>
-                    <UInput v-model="customEnd" type="date" :min="customStart || undefined" size="sm" class="flex-1" aria-label="Data final" />
+                    <UInput
+                      v-model="customEnd"
+                      type="date"
+                      :min="customStart || undefined"
+                      size="sm"
+                      class="flex-1"
+                      aria-label="Data final"
+                    />
                   </div>
-                  <p v-if="customRangeInvalid" class="inline-flex items-center gap-1.5 text-xs font-medium text-error">
-                    <UIcon name="i-lucide-triangle-alert" class="h-3.5 w-3.5" />
+                  <p
+                    v-if="customRangeInvalid"
+                    class="inline-flex items-center gap-1.5 text-xs font-medium text-error"
+                  >
+                    <UIcon
+                      name="i-lucide-triangle-alert"
+                      class="h-3.5 w-3.5"
+                    />
                     A data inicial deve ser anterior à data final.
                   </p>
                 </div>
@@ -484,23 +622,45 @@ async function exportCsv() {
             </template>
           </UPopover>
           <div class="flex-1" />
-          <USwitch v-model="includeNoCalls" label="Incluir sem chamadas" size="sm" />
+          <USwitch
+            v-model="includeNoCalls"
+            label="Incluir sem chamadas"
+            size="sm"
+          />
         </div>
-        <PortalFilterChips :chips="activeFilterChips" class="mt-3" @clear-all="clearFilters" />
+        <PortalFilterChips
+          :chips="activeFilterChips"
+          class="mt-3"
+          @clear-all="clearFilters"
+        />
       </UCard>
 
       <!-- KPIs -->
       <div class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        <UCard v-for="k in kpis" :key="k.label" :ui="{ body: 'p-5' }">
+        <UCard
+          v-for="k in kpis"
+          :key="k.label"
+          :ui="{ body: 'p-5' }"
+        >
           <div class="flex items-center justify-between gap-2">
             <span class="text-[13px] font-semibold text-muted">{{ k.label }}</span>
-            <div class="grid h-9 w-9 shrink-0 place-items-center rounded-lg" :class="k.iconClass">
-              <UIcon :name="k.icon" class="h-[18px] w-[18px]" />
+            <div
+              class="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+              :class="k.iconClass"
+            >
+              <UIcon
+                :name="k.icon"
+                class="h-[18px] w-[18px]"
+              />
             </div>
           </div>
           <div class="mt-3">
-            <div class="text-2xl font-bold tracking-tight">{{ k.value }}</div>
-            <div class="mt-2 text-xs text-dimmed">{{ k.sub }}</div>
+            <div class="text-2xl font-bold tracking-tight">
+              {{ k.value }}
+            </div>
+            <div class="mt-2 text-xs text-dimmed">
+              {{ k.sub }}
+            </div>
           </div>
         </UCard>
       </div>
@@ -510,8 +670,12 @@ async function exportCsv() {
         <template #header>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-base font-bold tracking-tight">Detalhamento de chamadas</h2>
-              <p class="text-xs text-dimmed">Chamadas no período e subcontas selecionados</p>
+              <h2 class="text-base font-bold tracking-tight">
+                Detalhamento de chamadas
+              </h2>
+              <p class="text-xs text-dimmed">
+                Chamadas no período e subcontas selecionados
+              </p>
             </div>
             <span class="text-xs text-dimmed">
               <span class="font-semibold text-muted">{{ total }}</span> chamada{{ total === 1 ? '' : 's' }}<template v-if="noCallRows.length"> · {{ noCallRows.length }} sem ligação</template>
@@ -521,58 +685,156 @@ async function exportCsv() {
 
         <div class="overflow-x-auto">
           <table class="w-full min-w-[900px] border-collapse">
-            <caption class="sr-only">Detalhamento de chamadas com usuário, data, duração, número discado e causa de desligamento</caption>
+            <caption class="sr-only">
+              Detalhamento de chamadas com usuário, data, duração, número discado e causa de desligamento
+            </caption>
             <thead>
               <tr class="bg-muted/50">
-                <th scope="col" class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
-                  <button type="button" class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default" :class="sortKey === 'user' ? 'text-default' : ''" @click="toggleSort('user')">
+                <th
+                  scope="col"
+                  class="px-[22px] py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                >
+                  <button
+                    type="button"
+                    class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default"
+                    :class="sortKey === 'user' ? 'text-default' : ''"
+                    @click="toggleSort('user')"
+                  >
                     Usuário
-                    <UIcon :name="sortIcon('user')" class="h-3.5 w-3.5" />
+                    <UIcon
+                      :name="sortIcon('user')"
+                      class="h-3.5 w-3.5"
+                    />
                   </button>
                 </th>
-                <th scope="col" class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
-                  <button type="button" class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default" :class="sortKey === 'date' ? 'text-default' : ''" @click="toggleSort('date')">
+                <th
+                  scope="col"
+                  class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                >
+                  <button
+                    type="button"
+                    class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default"
+                    :class="sortKey === 'date' ? 'text-default' : ''"
+                    @click="toggleSort('date')"
+                  >
                     Data da ligação
-                    <UIcon :name="sortIcon('date')" class="h-3.5 w-3.5" />
+                    <UIcon
+                      :name="sortIcon('date')"
+                      class="h-3.5 w-3.5"
+                    />
                   </button>
                 </th>
-                <th scope="col" class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
-                  <button type="button" class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default" :class="sortKey === 'duration' ? 'text-default' : ''" @click="toggleSort('duration')">
+                <th
+                  scope="col"
+                  class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                >
+                  <button
+                    type="button"
+                    class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default"
+                    :class="sortKey === 'duration' ? 'text-default' : ''"
+                    @click="toggleSort('duration')"
+                  >
                     Duração
-                    <UIcon :name="sortIcon('duration')" class="h-3.5 w-3.5" />
+                    <UIcon
+                      :name="sortIcon('duration')"
+                      class="h-3.5 w-3.5"
+                    />
                   </button>
                 </th>
-                <th scope="col" class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Número discado</th>
-                <th scope="col" class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Causa do desligamento</th>
+                <th
+                  scope="col"
+                  class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                >
+                  Número discado
+                </th>
+                <th
+                  scope="col"
+                  class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                >
+                  Causa do desligamento
+                </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in pagedCalls" :key="c.id" class="border-t border-default hover:bg-muted/40" :class="{ 'opacity-60': !c.date }">
+              <tr
+                v-for="c in pagedCalls"
+                :key="c.id"
+                class="border-t border-default hover:bg-muted/40"
+                :class="{ 'opacity-60': !c.date }"
+              >
                 <td class="py-3 pl-[22px] pr-3.5">
                   <div class="flex items-center gap-2.5">
-                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[11px] font-bold" :class="avatarTint(c.userId ?? '')">
+                    <div
+                      class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[11px] font-bold"
+                      :class="avatarTint(c.userId ?? '')"
+                    >
                       {{ initials(c.userName ?? '') }}
                     </div>
                     <div class="min-w-0">
-                      <div class="truncate text-[13px] font-semibold">{{ c.userName }}</div>
-                      <div v-if="showSubName" class="truncate text-[11px] text-dimmed">{{ c.subName }}</div>
+                      <div class="truncate text-[13px] font-semibold">
+                        {{ c.userName }}
+                      </div>
+                      <div
+                        v-if="showSubName"
+                        class="truncate text-[11px] text-dimmed"
+                      >
+                        {{ c.subName }}
+                      </div>
                     </div>
                   </div>
                 </td>
-                <td class="whitespace-nowrap px-3.5 py-3 text-[13px]" :class="c.date ? 'text-muted' : 'text-dimmed'">{{ c.date ? fmtCallDate(c.date) : '—' }}</td>
-                <td class="px-3.5 py-3 text-[13px]" :class="c.duration ? 'font-semibold' : 'text-dimmed'">{{ fmtDuration(c.duration) }}</td>
+                <td
+                  class="whitespace-nowrap px-3.5 py-3 text-[13px]"
+                  :class="c.date ? 'text-muted' : 'text-dimmed'"
+                >
+                  {{ c.date ? fmtCallDate(c.date) : '—' }}
+                </td>
+                <td
+                  class="px-3.5 py-3 text-[13px]"
+                  :class="c.duration ? 'font-semibold' : 'text-dimmed'"
+                >
+                  {{ fmtDuration(c.duration) }}
+                </td>
                 <td class="px-3.5 py-3">
                   <span class="font-mono text-[13px] text-muted">{{ c.number || '—' }}</span>
                 </td>
                 <td class="px-3.5 py-3">
-                  <UBadge v-if="c.cause" :color="CAUSE_BADGE[c.cause].color" variant="subtle">{{ CAUSE_BADGE[c.cause].label }}</UBadge>
-                  <UBadge v-else color="neutral" variant="subtle">Sem ligação</UBadge>
+                  <UBadge
+                    v-if="c.cause"
+                    :color="CAUSE_BADGE[c.cause].color"
+                    variant="subtle"
+                  >
+                    {{ CAUSE_BADGE[c.cause].label }}
+                  </UBadge>
+                  <UBadge
+                    v-else
+                    color="neutral"
+                    variant="subtle"
+                  >
+                    Sem ligação
+                  </UBadge>
                 </td>
               </tr>
-              <tr v-if="pagedCalls.length === 0" class="border-t border-default">
-                <td colspan="5" class="px-[22px] py-12 text-center">
-                  <p class="text-[13px] text-dimmed">{{ loading ? 'Carregando…' : (errorMsg || 'Nenhuma chamada encontrada com os filtros aplicados.') }}</p>
-                  <UButton v-if="hasActiveFilters && !loading" class="mt-2.5" color="neutral" variant="outline" size="sm" icon="i-lucide-x" @click="clearFilters">
+              <tr
+                v-if="pagedCalls.length === 0"
+                class="border-t border-default"
+              >
+                <td
+                  colspan="5"
+                  class="px-[22px] py-12 text-center"
+                >
+                  <p class="text-[13px] text-dimmed">
+                    {{ loading ? 'Carregando…' : (errorMsg || 'Nenhuma chamada encontrada com os filtros aplicados.') }}
+                  </p>
+                  <UButton
+                    v-if="hasActiveFilters && !loading"
+                    class="mt-2.5"
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    icon="i-lucide-x"
+                    @click="clearFilters"
+                  >
                     Limpar filtros
                   </UButton>
                 </td>

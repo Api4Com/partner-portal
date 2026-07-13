@@ -1,0 +1,63 @@
+# Stack "Partners" do staging — vive em /opt/staging/apps/partners/docker-compose.yml
+# no host cld-orc-staging (129.151.33.239). É incluída pelo compose raiz via:
+#
+#   # /opt/staging/docker-compose.yml
+#   include:
+#     - apps/partners/docker-compose.yml
+#
+# Paths relativos (env_file) resolvem a partir DESTE arquivo, ou seja de
+# /opt/staging/apps/partners/. A rede staging_network é criada pelo compose raiz;
+# aqui só a referenciamos (sem redeclarar), pra não mudar o ownership do root.
+#
+# Variáveis (${PARTNERS_*}) vêm do /opt/staging/.env raiz. Deploy a partir da raiz:
+#   cd /opt/staging
+#   aws ecr get-login-password --region us-east-1 \
+#     | docker login --username AWS --password-stdin 824572654562.dkr.ecr.us-east-1.amazonaws.com
+#   docker compose pull partners-portal && docker compose up -d partners-portal
+services:
+  partners-bff:
+    image: ${PARTNERS_BFF_ECR_IMAGE}
+    container_name: staging-partners-bff
+    restart: unless-stopped
+    env_file: ./bff/.env.staging
+    environment:
+      - NODE_ENV=staging
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partners-bff.rule=Host(`${PARTNERS_BFF_DOMAIN}`)"
+      - "traefik.http.routers.partners-bff.entrypoints=websecure"
+      - "traefik.http.services.partners-bff.loadbalancer.server.port=3000"
+    networks:
+      - staging_network
+
+  partners-portal:
+    image: ${PARTNERS_PORTAL_ECR_IMAGE}
+    container_name: staging-partners-portal
+    restart: unless-stopped
+    # NUXT_PUBLIC_* são lidas em RUNTIME pelo Nitro e sobrescrevem o runtimeConfig.
+    # Uma env definida VAZIA (KEY=) sobrescreve com "" em vez de cair no fallback
+    # do nuxt.config.ts — por isso o .env deixa as opcionais comentadas.
+    env_file: ./portal/.env.staging
+    environment:
+      - NODE_ENV=staging
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partners-portal.rule=Host(`${PARTNERS_PORTAL_DOMAIN}`)"
+      - "traefik.http.routers.partners-portal.entrypoints=websecure"
+      # Nitro escuta na 3000 (não 8080 como a SPA Vue do portal principal).
+      - "traefik.http.services.partners-portal.loadbalancer.server.port=3000"
+      - "traefik.http.services.partners-portal.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.partners-portal.loadbalancer.healthcheck.interval=10s"
+    healthcheck:
+      # `/` redireciona para /login (auth.global.ts); /health é rota Nitro sem auth.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - staging_network
+
+# A staging_network é definida (e criada) pelo compose raiz. Aqui só a
+# referenciamos nos serviços — NÃO a redeclaramos, pra não mudar a semântica de
+# ownership do root (um `external: true` aqui faria o root parar de criá-la).

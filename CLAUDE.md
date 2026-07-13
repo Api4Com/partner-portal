@@ -4,11 +4,11 @@ UI (Nuxt 4) do **portal do parceiro** da api4com. Um **partner** acessa este
 portal para enxergar a **hierarquia abaixo dele** — suas **subcontas** e os
 **usuários** de cada uma — incluindo **chamadas, relatórios e KPIs**.
 
-> O backend-alvo deste front é o **bff-portal** (NestJS), que compõe os dados de
+> O backend-alvo deste front é o **partner-portal-bff** (NestJS), que compõe os dados de
 > **core-service** (catálogo: organização, customers/subcontas, usuários,
 > hierarquia, status) + **pbxapi** (telefonia: ramais, chamadas/CDR, KPIs).
 > Modelo: Partner = `Organization` do core; Subconta = core `Customer` === pbx
-> `Organization` (mesmo UUID). Ver o `CLAUDE.md` do bff-portal.
+> `Organization` (mesmo UUID). Ver o `CLAUDE.md` do partner-portal-bff.
 
 ## Stack
 - **Framework**: Nuxt 4 (Vue 3, SSR) — `compatibilityDate` 2025-01-15
@@ -42,10 +42,10 @@ Migrada do Supabase para o **pbxapi** (mesmo padrão do api4com-portal):
 - Base do pbx vem de `runtimeConfig.public.pbxApiBase` (env **`PBX_API_BASE`**,
   default `http://localhost:3000/api`).
 
-> **Hoje o front chama o pbxapi diretamente** via `pbxApiBase`. O **bff-portal**
+> **Hoje o front chama o pbxapi diretamente** via `pbxApiBase`. O **partner-portal-bff**
 > já espelha essas rotas (`/users/login`, `/accounts/signup`, `/users/me`,
 > `/users/logout` — passthrough 1:1, mesmo contrato). Para passar a usar o BFF
-> como backend único, basta apontar `PBX_API_BASE` para a base do bff-portal
+> como backend único, basta apontar `PBX_API_BASE` para a base do partner-portal-bff
 > (as rotas no bff ficam na raiz, **sem** o prefixo `/api`).
 
 ## Estrutura (`app/`)
@@ -65,7 +65,7 @@ app/
 
 | Área | Fonte hoje | Vai virar |
 |---|---|---|
-| **Auth** (login/signup/sessão) | **pbxapi** (`useAuth` + middleware) — front bate direto no pbx | mesmas rotas via **bff-portal** (passthrough já existe) |
+| **Auth** (login/signup/sessão) | **pbxapi** (`useAuth` + middleware) — front bate direto no pbx | mesmas rotas via **partner-portal-bff** (passthrough já existe) |
 | **Subcontas** (`lib/contas.ts`, `useSubcontas`) | **mock** determinístico | `GET /subaccounts` (bff) |
 | **Usuários por subconta** (`useUsuarios`) | **mock** | `GET /subaccounts/:id/users` (bff) |
 | **Relatórios/chamadas** (`lib/relatorio.ts`) | **mock** | `GET /calls` + `GET /reports/summary` (bff) |
@@ -82,19 +82,19 @@ Volume, Taxa de atendimento) — tudo client-side sobre os mocks por enquanto.
   mas a **dependência ainda está no `package.json`** e `lib/roadmap.ts` /
   `useIsAdmin.ts` ainda referenciam `supabase` (tipado como `any`). Roadmap fica
   quebrado até migrar para o bff. Remover a dependência quando o roadmap migrar.
-- **BFF como backend único**: trocar `PBX_API_BASE` para a base do bff-portal e
+- **BFF como backend único**: trocar `PBX_API_BASE` para a base do partner-portal-bff e
   ir substituindo os mocks (subcontas/usuários/relatórios) pelos endpoints REST
   do bff (`/subaccounts`, `/subaccounts/:id/users`, `/calls`, `/reports/summary`).
 
 ## Docker / ambiente local
 
 - `Dockerfile` (target `development`) + `docker-compose.yml` sobem o Nuxt em dev
-  na rede **`platform_shared`** (mesma de core-service/pbxapi/bff-portal), porta
+  na rede **`platform_shared`** (mesma de core-service/pbxapi/partner-portal-bff), porta
   host **3010**.
 - ⚠️ O `docker-compose.yml` ainda traz placeholders de `SUPABASE_URL`/`KEY`
   (não são mais necessários, módulo removido) e **não** define `PBX_API_BASE`
   (cai no default `http://localhost:3000/api`). Alinhar o env quando consolidar
-  o uso do BFF (definir `PBX_API_BASE` para a base do bff-portal).
+  o uso do BFF (definir `PBX_API_BASE` para a base do partner-portal-bff).
 
 ```bash
 docker compose up -d --build   # sobe o partner-portal na platform_shared
@@ -110,4 +110,4 @@ docker compose down            # derruba
 - **Auth alvo**: migrar do login direto no pbx (interino) para **JWT do core**
   (TEL-1979 "Opção A": pbx valida senha → core emite JWT), consumido via bff.
 - **Roadmap**: migrar do Supabase para o bff (hoje resíduo quebrado).
-- Consolidar o front para falar com o **bff-portal** (em vez do pbxapi direto).
+- Consolidar o front para falar com o **partner-portal-bff** (em vez do pbxapi direto).

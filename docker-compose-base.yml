@@ -1,0 +1,15 @@
+services:
+  base:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/home/node/app
+      # mantém node_modules do container (não sobrescrito pelo bind mount)
+      - /home/node/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      CHOKIDAR_USEPOLLING: "true"

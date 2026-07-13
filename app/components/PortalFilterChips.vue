@@ -12,7 +12,10 @@ defineEmits<{ clearAll: [] }>()
 </script>
 
 <template>
-  <div v-if="chips.length" class="flex flex-wrap items-center gap-1.5">
+  <div
+    v-if="chips.length"
+    class="flex flex-wrap items-center gap-1.5"
+  >
     <span
       v-for="chip in chips"
       :key="chip.key"
@@ -25,10 +28,18 @@ defineEmits<{ clearAll: [] }>()
         :aria-label="`Remover filtro ${chip.label}`"
         @click="chip.clear()"
       >
-        <UIcon name="i-lucide-x" class="h-3 w-3" />
+        <UIcon
+          name="i-lucide-x"
+          class="h-3 w-3"
+        />
       </button>
     </span>
-    <UButton color="neutral" variant="link" size="xs" @click="$emit('clearAll')">
+    <UButton
+      color="neutral"
+      variant="link"
+      size="xs"
+      @click="$emit('clearAll')"
+    >
       Limpar tudo
     </UButton>
   </div>

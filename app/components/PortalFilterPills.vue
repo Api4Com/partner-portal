@@ -13,7 +13,9 @@ const model = defineModel<T>({ required: true })
 
 <template>
   <div>
-    <p class="mb-1.5 text-xs font-semibold text-muted">{{ label }}</p>
+    <p class="mb-1.5 text-xs font-semibold text-muted">
+      {{ label }}
+    </p>
     <div class="flex flex-wrap gap-1.5">
       <button
         v-for="opt in items"
