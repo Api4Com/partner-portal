@@ -14,6 +14,7 @@ interface BffCall {
   durationSeconds: number
   number: string | null
   cause: 'answered' | 'no_answer' | 'busy' | 'failed' | 'canceled'
+  recordingUrl: string | null
 }
 interface CallsPage { data: BffCall[], total: number, page: number, pageSize: number, pages: number }
 interface Summary {
@@ -38,6 +39,7 @@ interface ReportRow {
   duration: number
   number: string
   cause: HangupCause | null
+  recording: string | null
 }
 
 // O BFF devolve a causa em inglês; o badge da UI usa os rótulos PT.
@@ -167,7 +169,8 @@ function toRow(c: BffCall): ReportRow {
     date: c.date ?? '',
     duration: c.durationSeconds,
     number: c.number ?? '',
-    cause: CAUSE_EN_PT[c.cause] ?? 'falha'
+    cause: CAUSE_EN_PT[c.cause] ?? 'falha',
+    recording: c.recordingUrl
   }
 }
 
@@ -255,7 +258,8 @@ async function loadNoCalls() {
         date: '',
         duration: 0,
         number: '',
-        cause: null
+        cause: null,
+        recording: null
       })
     }
   }
@@ -423,14 +427,15 @@ async function exportCsv() {
     } while (p <= pages)
     rows.push(...noCallRows.value)
 
-    const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento']
+    const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento', 'Link da gravação']
     const lines = rows.map(c => [
       c.userName ?? '',
       c.subName ?? '',
       c.date ? fmtCallDate(c.date) : 'Sem ligação',
       c.duration || '',
       c.number,
-      c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação'
+      c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação',
+      c.recording ?? ''
     ].map(csvCell).join(';'))
 
     const csv = [headers.map(csvCell).join(';'), ...lines].join('\r\n')
@@ -687,7 +692,7 @@ async function exportCsv() {
         <div class="overflow-x-auto">
           <table class="w-full min-w-[900px] border-collapse">
             <caption class="sr-only">
-              Detalhamento de chamadas com usuário, data, duração, número discado e causa de desligamento
+              Detalhamento de chamadas com usuário, data, duração, número discado, causa de desligamento e gravação
             </caption>
             <thead>
               <tr class="bg-muted/50">
@@ -754,6 +759,12 @@ async function exportCsv() {
                 >
                   Causa do desligamento
                 </th>
+                <th
+                  scope="col"
+                  class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                >
+                  Gravação
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -815,13 +826,30 @@ async function exportCsv() {
                     Sem ligação
                   </UBadge>
                 </td>
+                <td class="py-3 pl-3.5 pr-[22px] text-right">
+                  <UButton
+                    v-if="c.recording"
+                    :to="c.recording"
+                    target="_blank"
+                    color="neutral"
+                    variant="outline"
+                    size="xs"
+                    icon="i-lucide-play"
+                  >
+                    Ouvir
+                  </UButton>
+                  <span
+                    v-else
+                    class="text-xs text-dimmed"
+                  >—</span>
+                </td>
               </tr>
               <tr
                 v-if="pagedCalls.length === 0"
                 class="border-t border-default"
               >
                 <td
-                  colspan="5"
+                  colspan="6"
                   class="px-[22px] py-12 text-center"
                 >
                   <p class="text-[13px] text-dimmed">
