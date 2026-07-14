@@ -18,6 +18,13 @@ import {
 // endpoint real; basta virar esta flag para `true`.
 const SHOW_APIKEY_E_METADADOS = false
 
+// Escrita de usuários da subconta (adicionar, trocar tipo de acesso, ativar/desativar)
+// está DESABILITADA: o BFF ainda não expõe endpoints de escrita, então essas ações são
+// otimistas e LOCAIS — mudam a tela, não mudam nada de verdade e somem no reload. Pior
+// que não ter: passam a impressão de que a alteração foi aplicada.
+// A UI e os handlers ficam no lugar; virar para `true` quando o BFF expuser a escrita.
+const ENABLE_ESCRITA_USUARIOS = false
+
 /* ----- contrato do BFF ----- */
 interface BffSubaccount { id: string, name: string, users: number, minutes: number, status: 'active' | 'inactive' }
 interface BffSubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
@@ -242,13 +249,14 @@ watch([search, roleFilter, statusFilter, dateFilter, customStart, customEnd], ()
 })
 
 const filteredUsuarios = computed(() => {
-  const q = search.value.trim().toLowerCase()
+  const q = normalizeSearch(search.value.trim())
   return usuarios.value.filter((u) => {
-    const matchesSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    const matchesRole = roleFilter.value === 'all' || u.role === roleFilter.value
-    const matchesStatus = statusFilter.value === 'all'
+    // Busca ignora acento e caixa nos dois sentidos ("te" acha "Tétheu" e vice-versa).
+    const okSearch = !q || matchesSearch(u.name, q) || matchesSearch(u.email, q)
+    const okRole = roleFilter.value === 'all' || u.role === roleFilter.value
+    const okStatus = statusFilter.value === 'all'
       || (statusFilter.value === 'active' ? u.active : !u.active)
-    return matchesSearch && matchesRole && matchesStatus && withinLastCall(u.lastCall)
+    return okSearch && okRole && okStatus && withinLastCall(u.lastCall)
   })
 })
 

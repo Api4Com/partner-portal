@@ -225,7 +225,8 @@ async function loadNoCalls() {
     return
   }
   const seq = ++noCallsSeq
-  const q = search.value.trim().toLowerCase()
+  // Busca ignora acento e caixa nos dois sentidos ("te" acha "Tétheu" e vice-versa).
+  const q = normalizeSearch(search.value.trim())
   const rows: ReportRow[] = []
   for (const s of scopeSubs.value) {
     let users: SubUser[] = []
@@ -242,7 +243,7 @@ async function loadNoCalls() {
     }
     for (const u of users) {
       if (u.lastCall) continue // teve chamada NO PERÍODO
-      if (q && !u.name.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) continue
+      if (q && !matchesSearch(u.name, q) && !matchesSearch(s.name, q)) continue
       rows.push({
         id: `nocall-${s.id}-${u.id}`,
         subId: s.id,
