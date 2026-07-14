@@ -191,7 +191,17 @@ async function onCreated(s: Subaccount) {
                   Volumetria (30 dias)
                 </th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
-                  Status
+                  <span class="inline-flex items-center gap-1">
+                    Status
+                    <UTooltip text="Ativo: teve chamadas nos últimos 7 dias.">
+                      <UIcon
+                        name="i-lucide-info"
+                        class="h-3.5 w-3.5 cursor-help text-dimmed"
+                        tabindex="0"
+                        aria-label="Ativo: teve chamadas nos últimos 7 dias."
+                      />
+                    </UTooltip>
+                  </span>
                 </th>
                 <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">
                   Ações

@@ -4,10 +4,8 @@ interface CreatedSubaccount { id: string, name: string, users: number, minutes: 
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ created: [s: CreatedSubaccount] }>()
 
-const { user, bffFetch } = useAuth()
+const { bffFetch } = useAuth()
 const { executeRecaptcha } = useRecaptcha()
-
-const partnerName = computed(() => user.value?.name || 'a conta principal')
 
 // Passo "Cobrança" OCULTO a pedido — mude para true p/ reativar (o conteúdo
 // continua no template, só não entra no fluxo enquanto false).
@@ -44,14 +42,28 @@ const docValid = computed(() => !docClean.value || docType.value !== null)
 const emailOk = computed(() => /.+@.+\..+/.test(adminEmail.value.trim()))
 const phoneOk = computed(() => phone.value.replace(/\D/g, '').length >= 10)
 
-const step1Valid = computed(() =>
-  name.value.trim().length >= 2
-  && docValid.value
-  && adminName.value.trim().length >= 2
-  && emailOk.value
-  && phoneOk.value
-  && password.value.length >= 6
-)
+/* ----- validação: erros só aparecem depois da 1ª tentativa de avançar ----- */
+const attempted = ref(false)
+
+const errors = computed(() => ({
+  name: name.value.trim().length < 2 ? 'Informe o nome da empresa.' : '',
+  identification: docClean.value && !docValid.value
+    ? 'Documento inválido — CPF (11 dígitos) ou CNPJ (14 caracteres).'
+    : '',
+  adminName: adminName.value.trim().length < 2 ? 'Informe o nome do administrador.' : '',
+  adminEmail: !emailOk.value ? 'Informe um e-mail válido.' : '',
+  phone: !phoneOk.value ? 'Informe um telefone com DDD.' : '',
+  password: password.value.length < 6 ? 'A senha precisa ter no mínimo 6 caracteres.' : ''
+}))
+
+const step1Valid = computed(() => Object.values(errors.value).every(e => !e))
+
+// Só mostra o erro depois que o usuário tentou avançar. `undefined` (e não '')
+// é obrigatório: o UFormField pinta o campo de vermelho com qualquer `error`
+// definido, inclusive string vazia.
+function shownError(field: keyof typeof errors.value): string | undefined {
+  return attempted.value && errors.value[field] ? errors.value[field] : undefined
+}
 
 /* ----- telefone: máscara (XX) XXXXX-XXXX (móvel) ou (XX) XXXX-XXXX (fixo) ----- */
 function formatPhone(v: string): string {
@@ -78,6 +90,7 @@ watch(open, (v) => {
     phone.value = ''
     password.value = ''
     errorMsg.value = ''
+    attempted.value = false
     submitting.value = false
   }
 })
@@ -120,7 +133,10 @@ async function submit() {
 }
 
 function next() {
-  if (stepIdx.value === 0 && !step1Valid.value) return
+  if (stepIdx.value === 0 && !step1Valid.value) {
+    attempted.value = true
+    return
+  }
   if (!isLast.value) stepIdx.value += 1
   else submit()
 }
@@ -146,9 +162,6 @@ function next() {
               <h2 class="text-lg font-bold tracking-tight">
                 Nova Subconta
               </h2>
-              <p class="mt-0.5 text-xs text-dimmed">
-                Subconta gerida por {{ partnerName }} · saldo próprio e independente.
-              </p>
             </div>
           </div>
           <UButton
@@ -200,17 +213,35 @@ function next() {
             v-if="currentStep === 'Identidade'"
             class="flex flex-col gap-4"
           >
-            <UFormField label="Nome da Subconta">
+            <div
+              v-if="attempted && !step1Valid"
+              class="flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 px-3.5 py-2.5 text-[13px] text-error"
+            >
+              <UIcon
+                name="i-lucide-triangle-alert"
+                class="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span>Revise os campos destacados abaixo para continuar.</span>
+            </div>
+
+            <UFormField
+              label="Nome da empresa"
+              :error="shownError('name')"
+            >
+              <!-- autocomplete="off" em todos os campos: são dados do CLIENTE, não do
+                   parceiro logado — o autofill do browser só atrapalha aqui. -->
               <UInput
                 v-model="name"
                 placeholder="Ex.: Empresa do Cliente"
                 size="lg"
                 class="w-full"
+                autocomplete="off"
                 autofocus
               />
             </UFormField>
             <UFormField
               label="Documento (CPF/CNPJ)"
+              :error="shownError('identification')"
               :help="docType ? `Detectado: ${docType}` : 'Opcional — informe CPF ou CNPJ'"
             >
               <UInput
@@ -218,6 +249,7 @@ function next() {
                 placeholder="CPF ou CNPJ (opcional)"
                 size="lg"
                 class="w-full"
+                autocomplete="off"
                 :color="docClean && !docValid ? 'error' : undefined"
               />
             </UFormField>
@@ -227,18 +259,23 @@ function next() {
                 Administrador da subconta
               </p>
               <div class="flex flex-col gap-4">
-                <UFormField label="Nome do administrador">
+                <UFormField
+                  label="Nome do administrador"
+                  :error="shownError('adminName')"
+                >
                   <UInput
                     v-model="adminName"
                     placeholder="Ex.: Maria Silva"
                     size="lg"
                     class="w-full"
+                    autocomplete="off"
                   />
                 </UFormField>
                 <div class="flex flex-col gap-4 sm:flex-row">
                   <UFormField
                     label="E-mail"
                     class="flex-1"
+                    :error="shownError('adminEmail')"
                   >
                     <UInput
                       v-model="adminEmail"
@@ -246,11 +283,13 @@ function next() {
                       placeholder="Ex.: admin@empresa.com.br"
                       size="lg"
                       class="w-full"
+                      autocomplete="off"
                     />
                   </UFormField>
                   <UFormField
                     label="Telefone"
                     class="flex-1"
+                    :error="shownError('phone')"
                   >
                     <UInput
                       v-model="phone"
@@ -258,11 +297,13 @@ function next() {
                       placeholder="(11) 99999-9999"
                       size="lg"
                       class="w-full"
+                      autocomplete="off"
                     />
                   </UFormField>
                 </div>
                 <UFormField
                   label="Senha inicial"
+                  :error="shownError('password')"
                   help="O administrador poderá alterá-la depois no portal do usuário."
                 >
                   <UInput
@@ -270,6 +311,7 @@ function next() {
                     type="password"
                     placeholder="Mínimo 6 caracteres"
                     size="lg"
+                    autocomplete="new-password"
                     class="w-full"
                   />
                 </UFormField>
@@ -327,7 +369,7 @@ function next() {
               </div>
               <div class="divide-y divide-default">
                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                  <span class="text-xs font-medium text-muted">Nome da Subconta</span>
+                  <span class="text-xs font-medium text-muted">Nome da empresa</span>
                   <span class="text-right text-[13px] font-semibold">{{ name.trim() || '—' }}</span>
                 </div>
                 <div class="flex items-center justify-between gap-3 px-3.5 py-2.5">
@@ -347,6 +389,17 @@ function next() {
                   <span class="text-right text-[13px] font-semibold">{{ phone.trim() || '—' }}</span>
                 </div>
               </div>
+            </div>
+
+            <div class="flex items-start gap-2 text-[11px] leading-snug text-dimmed">
+              <UIcon
+                name="i-lucide-mail"
+                class="mt-px h-3.5 w-3.5 shrink-0"
+              />
+              <span>
+                Após a confirmação do cadastro, um convite será enviado por e-mail ao administrador.
+                Ele precisa aceitar o convite para conseguir entrar no portal do usuário.
+              </span>
             </div>
 
             <div
@@ -385,7 +438,7 @@ function next() {
               Cancelar
             </UButton>
             <UButton
-              :disabled="(stepIdx === 0 && !step1Valid) || submitting"
+              :disabled="submitting"
               :loading="submitting && isLast"
               @click="next"
             >

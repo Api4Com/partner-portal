@@ -96,10 +96,7 @@ onBeforeUnmount(() => {
 
       <div class="relative flex items-center gap-3">
         <div class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 ring-1 ring-inset ring-white/15">
-          <UIcon
-            name="i-lucide-radio"
-            class="h-5 w-5"
-          />
+          <AppMark class="h-5 w-5" />
         </div>
         <div class="leading-tight">
           <p class="font-semibold tracking-tight">
