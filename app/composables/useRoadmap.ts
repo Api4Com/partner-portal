@@ -17,15 +17,19 @@ export function useRoadmap() {
 
   const activeItem = computed(() => items.value.find(i => i.id === activeItemId.value) ?? null)
 
-  const openItem = (id: string) => { activeItemId.value = id }
-  const closeItem = () => { activeItemId.value = null }
+  const openItem = (id: string) => {
+    activeItemId.value = id
+  }
+  const closeItem = () => {
+    activeItemId.value = null
+  }
 
   /**
    * Aplica/alterna a reação do usuário. Clicar na reação já ativa a remove.
    */
   async function react(id: string, reaction: Reaction) {
     const current = states.value[id]
-    if (!current || !user.value) return
+    if (!current || !user.value || !supabase) return
 
     const prev = current.myReaction
     const next: Reaction | null = prev === reaction ? null : reaction
@@ -44,14 +48,13 @@ export function useRoadmap() {
     }
     pending.value = true
     try {
-      const db = supabase as any
       if (next === null) {
         // RLS já limita a exclusão à linha do próprio usuário.
-        const { error } = await db.from('roadmap_interests').delete().eq('item_id', id)
+        const { error } = await supabase.from('roadmap_interests').delete().eq('item_id', id)
         if (error) throw error
       } else {
         // user_id vem do default auth.uid() no banco.
-        const { error } = await db
+        const { error } = await supabase
           .from('roadmap_interests')
           .upsert({ item_id: id, reaction: next }, { onConflict: 'item_id,user_id' })
         if (error) throw error
@@ -67,12 +70,11 @@ export function useRoadmap() {
   /** Adiciona um comentário do usuário (pode ter vários por item). */
   async function addComment(itemId: string, body: string) {
     const text = body.trim()
-    if (!text || !user.value) return
+    if (!text || !user.value || !supabase) return
     pending.value = true
     try {
-      const db = supabase as any
       // user_id vem do default auth.uid() no banco.
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('roadmap_comments')
         .insert({ item_id: itemId, body: text })
         .select('id, item_id, body, created_at, updated_at')
@@ -99,11 +101,10 @@ export function useRoadmap() {
   /** Edita um comentário do próprio usuário. */
   async function editComment(itemId: string, commentId: string, body: string) {
     const text = body.trim()
-    if (!text) return
+    if (!text || !supabase) return
     pending.value = true
     try {
-      const db = supabase as any
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('roadmap_comments')
         .update({ body: text })
         .eq('id', commentId)
@@ -125,10 +126,10 @@ export function useRoadmap() {
 
   /** Exclui um comentário do próprio usuário. */
   async function deleteComment(itemId: string, commentId: string) {
+    if (!supabase) return
     pending.value = true
     try {
-      const db = supabase as any
-      const { error } = await db.from('roadmap_comments').delete().eq('id', commentId)
+      const { error } = await supabase.from('roadmap_comments').delete().eq('id', commentId)
       if (error) throw error
       myComments.value = {
         ...myComments.value,

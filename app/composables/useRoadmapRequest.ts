@@ -13,14 +13,13 @@ export function useRoadmapRequest() {
   async function submitRequest(title: string, description: string): Promise<boolean> {
     const t = title.trim()
     const d = description.trim()
-    if (!t || !d || !user.value) return false
+    if (!t || !d || !user.value || !supabase) return false
 
     sending.value = true
     try {
-      const db = supabase as any
       // user_id vem do default auth.uid() no banco. Sem .select(): o parceiro
       // não tem permissão de leitura nessa tabela (apenas envio).
-      const { error } = await db.from('roadmap_requests').insert({ title: t, description: d })
+      const { error } = await supabase.from('roadmap_requests').insert({ title: t, description: d })
       if (error) throw error
       toast.add({
         title: 'Demanda enviada!',

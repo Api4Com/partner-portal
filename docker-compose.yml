@@ -1,0 +1,35 @@
+services:
+
+  app:
+    build:
+      context: .
+      target: development
+    command: sh -c "npm install && npm run dev -- --host"
+    volumes:
+      - ./:/home/node/app
+      # mantém node_modules do container (não é sobrescrito pelo bind mount)
+      - /home/node/app/node_modules
+    ports:
+      - '3010:3000'
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+
+      # URL do BFF para o NAVEGADOR (host). O browser não resolve nomes de
+      # container, então aponta para a porta exposta do partner-portal-bff no host.
+      - NUXT_PUBLIC_BFF_BASE_URL=http://localhost:3005
+      # URL do BFF para chamadas SSR (dentro da rede docker, via container `partner-portal-bff`).
+      - BFF_INTERNAL_URL=http://partner-portal-bff:3000
+
+      # Supabase: fonte de dados do roadmap/admin (NÃO é auth — o login é do pbx).
+      # Repassa do .env local; se não existir, o roadmap só carrega vazio.
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+    networks:
+      - default
+      - api4com-network
+
+networks:
+  api4com-network:
+    name: api4com-network
+    external: true

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import {
   API_KEY,
-  AVATAR_PALETTE,
   avatarTint,
   buildMeta,
-  CONTA_PRINCIPAL,
+  fmt,
   fmtLastCall,
   initials,
   ROLE_BADGE,
@@ -13,30 +12,85 @@ import {
   type UsuarioRole
 } from '~/lib/contas'
 
-const toast = useToast()
+// Chave de API e Metadados de Observabilidade estão OCULTOS por ora: os dois cards
+// ainda são alimentados por mock (`API_KEY`/`buildMeta` em `lib/contas.ts`) — o BFF
+// não expõe esses dados. O código fica no lugar, pronto para religar quando houver
+// endpoint real; basta virar esta flag para `true`.
+const SHOW_APIKEY_E_METADADOS = false
 
+// Escrita de usuários da subconta (adicionar, trocar tipo de acesso, ativar/desativar)
+// está DESABILITADA: o BFF ainda não expõe endpoints de escrita, então essas ações são
+// otimistas e LOCAIS — mudam a tela, não mudam nada de verdade e somem no reload. Pior
+// que não ter: passam a impressão de que a alteração foi aplicada.
+// A UI e os handlers ficam no lugar; virar para `true` quando o BFF expuser a escrita.
+const ENABLE_ESCRITA_USUARIOS = false
+
+/* ----- contrato do BFF ----- */
+interface BffSubaccount { id: string, name: string, users: number, minutes: number, status: 'active' | 'inactive' }
+interface BffSubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
+interface Summary { subaccounts: number, usersTotal: number, active7d: number, inactive: number, volumeMinutes: number, answerRate: number, callsInPeriod: number }
+
+const toast = useToast()
 const route = useRoute()
 const id = route.params.id as string
-const { byId, indexOf } = useSubcontas()
+const { user, bffFetch } = useAuth()
+const DAY = 86400000
 
-const subconta = byId(id)
-// Subconta inexistente (ex.: criada em runtime e a página foi recarregada) → home.
-if (!subconta) {
-  await navigateTo('/')
+/* ----- dados reais (BFF) ----- */
+const loading = ref(true)
+const subconta = ref<BffSubaccount | null>(null)
+const usuarios = ref<Usuario[]>([])
+const summary = ref<Summary | null>(null)
+const novoUsuarioOpen = ref(false)
+
+// Subconta e usuário do BFF vêm em inglês; a UI reaproveita os tipos/badges do mock.
+const statusBadge = computed(() => (subconta.value?.status === 'active' ? STATUS_BADGE.ativo : STATUS_BADGE.inativo))
+const partnerName = computed(() => user.value?.name || 'a conta principal')
+const meta = buildMeta(id)
+// Sem campo de cobrança no BFF: a subconta é quem define pré-pago/plano.
+const chargeLabel = 'Definido pela subconta'
+
+function mapUser(u: BffSubUser): Usuario {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role === 'admin' ? 'admin' : 'usuario',
+    active: u.active,
+    lastCall: u.lastCall ?? ''
+  }
 }
 
-const index = indexOf(id)
-const meta = subconta ? buildMeta(subconta.id) : []
-const chargeLabel = computed(() => {
-  if (!subconta) return ''
-  if (subconta.charge === 'pending') return 'Aguardando definição da subconta'
-  return `${subconta.charge === 'plan' ? 'Plano · por usuário' : 'Pré-pago'} · definido pela subconta`
+// Volumetria a partir do /reports/summary escopado nesta subconta (últimos 30 dias).
+const totalCalls = computed(() => (summary.value ? fmt(summary.value.callsInPeriod) : '—'))
+const tma = computed(() => {
+  const s = summary.value
+  if (!s || !s.callsInPeriod) return '—'
+  const secs = Math.round((s.volumeMinutes * 60) / s.callsInPeriod)
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`
 })
 
-/* ----- usuários da subconta ----- */
-const { list, add, setRole, toggleActive } = useUsuarios()
-const usuarios = subconta ? list(subconta) : computed(() => [])
-const novoUsuarioOpen = ref(false)
+async function loadDetail() {
+  loading.value = true
+  try {
+    const from = new Date(Date.now() - 30 * DAY).toISOString()
+    const [subs, usersResp, sum] = await Promise.all([
+      bffFetch<BffSubaccount[]>('/subaccounts'),
+      bffFetch<{ data: BffSubUser[] }>(`/subaccounts/${id}/users`).catch(() => ({ data: [] as BffSubUser[] })),
+      bffFetch<Summary>('/reports/summary', { query: { subaccountId: id, from } }).catch(() => null)
+    ])
+    subconta.value = subs.find(s => s.id === id) ?? null
+    usuarios.value = (usersResp.data ?? []).map(mapUser)
+    summary.value = sum
+  } catch {
+    subconta.value = null
+  } finally {
+    loading.value = false
+  }
+  // Subconta fora do escopo do parceiro (ou id inexistente) → volta pro painel.
+  if (!subconta.value) await navigateTo('/')
+}
+onMounted(loadDetail)
 
 const search = ref('')
 const roleFilter = ref<'all' | UsuarioRole>('all')
@@ -85,7 +139,6 @@ const dateFilterItems: { label: string, value: DateFilter }[] = [
   { label: 'Personalizado', value: 'custom' }
 ]
 
-const DAY = 86400000
 function withinLastCall(iso: string): boolean {
   if (dateFilter.value === 'all') return true
   if (dateFilter.value === 'never') return !iso
@@ -142,13 +195,31 @@ function dateChipLabel(): string {
 const activeFilterChips = computed(() => {
   const chips: { key: string, label: string, clear: () => void }[] = []
   if (roleFilter.value !== 'all') {
-    chips.push({ key: 'role', label: `Acesso: ${roleFilterItems.find(i => i.value === roleFilter.value)?.label}`, clear: () => { roleFilter.value = 'all' } })
+    chips.push({
+      key: 'role',
+      label: `Acesso: ${roleFilterItems.find(i => i.value === roleFilter.value)?.label}`,
+      clear: () => {
+        roleFilter.value = 'all'
+      }
+    })
   }
   if (statusFilter.value !== 'all') {
-    chips.push({ key: 'status', label: `Status: ${statusFilterItems.find(i => i.value === statusFilter.value)?.label}`, clear: () => { statusFilter.value = 'all' } })
+    chips.push({
+      key: 'status',
+      label: `Status: ${statusFilterItems.find(i => i.value === statusFilter.value)?.label}`,
+      clear: () => {
+        statusFilter.value = 'all'
+      }
+    })
   }
   if (dateFilter.value !== 'all') {
-    chips.push({ key: 'date', label: `Ligação: ${dateChipLabel()}`, clear: () => { dateFilter.value = 'all' } })
+    chips.push({
+      key: 'date',
+      label: `Ligação: ${dateChipLabel()}`,
+      clear: () => {
+        dateFilter.value = 'all'
+      }
+    })
   }
   return chips
 })
@@ -178,13 +249,14 @@ watch([search, roleFilter, statusFilter, dateFilter, customStart, customEnd], ()
 })
 
 const filteredUsuarios = computed(() => {
-  const q = search.value.trim().toLowerCase()
+  const q = normalizeSearch(search.value.trim())
   return usuarios.value.filter((u) => {
-    const matchesSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    const matchesRole = roleFilter.value === 'all' || u.role === roleFilter.value
-    const matchesStatus = statusFilter.value === 'all'
+    // Busca ignora acento e caixa nos dois sentidos ("te" acha "Tétheu" e vice-versa).
+    const okSearch = !q || matchesSearch(u.name, q) || matchesSearch(u.email, q)
+    const okRole = roleFilter.value === 'all' || u.role === roleFilter.value
+    const okStatus = statusFilter.value === 'all'
       || (statusFilter.value === 'active' ? u.active : !u.active)
-    return matchesSearch && matchesRole && matchesStatus && withinLastCall(u.lastCall)
+    return okSearch && okRole && okStatus && withinLastCall(u.lastCall)
   })
 })
 
@@ -232,50 +304,55 @@ const pagedUsuarios = computed(() =>
   displayUsuarios.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE)
 )
 // Volta para a 1ª página quando o conjunto filtrado/ordenado encolhe ou muda.
-watch(() => displayUsuarios.value.length, () => { page.value = 1 })
+watch(() => displayUsuarios.value.length, () => {
+  page.value = 1
+})
 
 const roleItems = [
   { label: 'Usuário', value: 'usuario' },
   { label: 'Admin', value: 'admin' }
 ]
 
+// Mutações de usuário são otimistas e locais (sessão): o BFF ainda não expõe
+// endpoints de escrita de usuários da subconta. Somem ao recarregar.
+function setUserRole(userId: string, role: UsuarioRole) {
+  usuarios.value = usuarios.value.map(x => (x.id === userId ? { ...x, role } : x))
+}
+
 function onUsuarioCriado(u: Usuario) {
-  if (!subconta) return
-  add(subconta.id, u)
+  usuarios.value = [u, ...usuarios.value]
   // Garante que o novo usuário fique visível (não escondido por um filtro ativo).
   if (hasActiveFilters.value) clearFilters()
   toast.add({ title: 'Usuário adicionado', description: u.name, icon: 'i-lucide-user-plus', color: 'success' })
 }
 
 function onRoleChange(userId: string, role: UsuarioRole) {
-  if (!subconta) return
   const u = usuarios.value.find(x => x.id === userId)
   if (!u || u.role === role) return
   const prev = u.role
-  setRole(subconta.id, userId, role)
+  setUserRole(userId, role)
   toast.add({
     title: 'Tipo de acesso alterado',
     description: `${u.name} agora é ${ROLE_BADGE[role].label}`,
     icon: 'i-lucide-shield-check',
     color: 'success',
-    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => setRole(subconta!.id, userId, prev) }]
+    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => setUserRole(userId, prev) }]
   })
 }
 
 function onToggleActive(u: Usuario) {
-  if (!subconta) return
-  toggleActive(subconta.id, u.id)
   const nowActive = !u.active // u referencia o estado anterior (mutação é imutável)
+  usuarios.value = usuarios.value.map(x => (x.id === u.id ? { ...x, active: nowActive } : x))
   toast.add({
     title: nowActive ? 'Usuário ativado' : 'Usuário desativado',
     description: u.name,
     icon: nowActive ? 'i-lucide-user-check' : 'i-lucide-user-x',
     color: nowActive ? 'success' : 'neutral',
-    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => toggleActive(subconta!.id, u.id) }]
+    actions: [{ label: 'Desfazer', icon: 'i-lucide-undo-2', onClick: () => { usuarios.value = usuarios.value.map(x => (x.id === u.id ? { ...x, active: !nowActive } : x)) } }]
   })
 }
 
-/* ----- API key: mascarar/revelar/copiar ----- */
+/* ----- API key: mascarar/revelar/copiar (inativo enquanto SHOW_APIKEY_E_METADADOS = false) ----- */
 const revealed = ref(false)
 const maskedKey = computed(() =>
   revealed.value ? API_KEY : `${API_KEY.slice(0, 8)}${'•'.repeat(18)}${API_KEY.slice(-4)}`
@@ -298,43 +375,70 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
 <template>
   <PortalTopbar :breadcrumbs="[{ label: 'Painel Geral', to: '/' }, { label: subconta?.name ?? 'Cliente' }]" />
 
-  <div v-if="subconta" class="flex-1 overflow-y-auto px-7 pb-12 pt-7">
+  <div
+    v-if="loading"
+    class="flex flex-1 items-center justify-center py-24 text-sm text-dimmed"
+  >
+    <UIcon
+      name="i-lucide-loader-circle"
+      class="mr-2 h-4 w-4 animate-spin"
+    />
+    Carregando subconta…
+  </div>
+
+  <div
+    v-else-if="subconta"
+    class="flex-1 overflow-y-auto px-7 pb-12 pt-7"
+  >
     <div class="mx-auto max-w-[1240px]">
       <!-- Header do detalhe -->
       <div class="mb-[22px] flex flex-wrap items-start justify-between gap-4">
         <div class="flex items-center gap-3.5">
           <div
             class="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-xl text-lg font-bold"
-            :class="AVATAR_PALETTE[index % AVATAR_PALETTE.length]"
+            :class="avatarTint(subconta.id)"
           >
             {{ initials(subconta.name) }}
           </div>
           <div>
             <div class="flex flex-wrap items-center gap-2.5">
-              <h1 class="text-2xl font-bold tracking-tight">{{ subconta.name }}</h1>
-              <UBadge :color="STATUS_BADGE[subconta.status].color" variant="subtle">
-                {{ STATUS_BADGE[subconta.status].label }}
+              <h1 class="text-2xl font-bold tracking-tight">
+                {{ subconta.name }}
+              </h1>
+              <UBadge
+                :color="statusBadge.color"
+                variant="subtle"
+              >
+                {{ statusBadge.label }}
               </UBadge>
             </div>
             <div class="mt-1.5 flex items-center gap-2.5 text-xs text-dimmed">
               <span class="rounded-md bg-muted px-2 py-1 font-mono text-muted">{{ subconta.id }}</span>
               <span>·</span>
-              <span>Subconta de {{ CONTA_PRINCIPAL.name }}</span>
+              <span>Subconta de {{ partnerName }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.55fr_1fr]">
-        <!-- Coluna esquerda -->
+      <div
+        class="grid grid-cols-1 items-start gap-[18px]"
+        :class="SHOW_APIKEY_E_METADADOS ? 'lg:grid-cols-[1.55fr_1fr]' : ''"
+      >
+        <!-- Coluna esquerda (única enquanto a coluna direita está oculta) -->
         <div class="flex flex-col gap-[18px]">
           <!-- Modelo comercial -->
           <UCard>
             <div class="mb-3.5 flex items-center gap-2.5">
               <div class="grid h-[30px] w-[30px] place-items-center rounded-lg bg-brand-900 text-white">
-                <UIcon name="i-lucide-credit-card" class="h-4 w-4" />
+                <UIcon
+                  name="i-lucide-credit-card"
+                  class="h-4 w-4"
+                />
               </div>
-              <h2 class="text-base font-bold tracking-tight">Modelo comercial vigente</h2>
+              <h2 class="text-base font-bold tracking-tight">
+                Modelo comercial vigente
+              </h2>
             </div>
             <div class="overflow-hidden rounded-xl border border-default">
               <div class="flex items-center justify-between gap-3 border-b border-default bg-muted px-3.5 py-3">
@@ -351,29 +455,46 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           <!-- Volumetria -->
           <UCard>
             <div class="mb-4">
-              <h2 class="text-base font-bold tracking-tight">Volumetria &amp; Observabilidade</h2>
+              <h2 class="text-base font-bold tracking-tight">
+                Volumetria &amp; Observabilidade
+              </h2>
             </div>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
-                  <UIcon name="i-lucide-phone" class="h-[15px] w-[15px]" />
-                  <span class="text-xs font-medium">Total de chamadas</span>
+                  <UIcon
+                    name="i-lucide-phone"
+                    class="h-[15px] w-[15px]"
+                  />
+                  <span class="text-xs font-medium">Total de chamadas (30d)</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">4.280</div>
+                <div class="text-2xl font-bold tracking-tight">
+                  {{ totalCalls }}
+                </div>
               </div>
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
-                  <UIcon name="i-lucide-clock" class="h-[15px] w-[15px]" />
+                  <UIcon
+                    name="i-lucide-clock"
+                    class="h-[15px] w-[15px]"
+                  />
                   <span class="text-xs font-medium">Duração média (TMA)</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">3m 42s</div>
+                <div class="text-2xl font-bold tracking-tight">
+                  {{ tma }}
+                </div>
               </div>
               <div class="rounded-xl border border-default bg-muted p-[15px]">
                 <div class="mb-2.5 flex items-center gap-1.5 text-muted">
-                  <UIcon name="i-lucide-users" class="h-[15px] w-[15px]" />
+                  <UIcon
+                    name="i-lucide-users"
+                    class="h-[15px] w-[15px]"
+                  />
                   <span class="text-xs font-medium">Usuários</span>
                 </div>
-                <div class="text-2xl font-bold tracking-tight">{{ usuarios.length }}</div>
+                <div class="text-2xl font-bold tracking-tight">
+                  {{ usuarios.length }}
+                </div>
                 <div class="mt-0.5 text-[11px] font-medium text-dimmed">
                   <span class="text-emerald-600">{{ callers30d }}</span> ligaram nos últimos 30 dias
                 </div>
@@ -386,10 +507,18 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
             <div class="border-b border-default px-5 py-4">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 class="mb-0.5 text-base font-bold tracking-tight">Usuários da subconta</h2>
-                  <p class="text-xs text-dimmed">Acesso isolado desta subconta · sem acesso de irmãs ou pai</p>
+                  <h2 class="mb-0.5 text-base font-bold tracking-tight">
+                    Usuários da subconta
+                  </h2>
+                  <p class="text-xs text-dimmed">
+                    Acesso isolado desta subconta · sem acesso de irmãs ou pai
+                  </p>
                 </div>
-                <UButton icon="i-lucide-user-plus" @click="novoUsuarioOpen = true">
+                <UButton
+                  v-if="ENABLE_ESCRITA_USUARIOS"
+                  icon="i-lucide-user-plus"
+                  @click="novoUsuarioOpen = true"
+                >
                   Adicionar usuário
                 </UButton>
               </div>
@@ -401,9 +530,20 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                   class="min-w-[200px] flex-1 sm:w-[280px] sm:flex-none"
                 />
                 <UPopover>
-                  <UButton color="neutral" variant="outline" icon="i-lucide-list-filter" trailing-icon="i-lucide-chevron-down">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    icon="i-lucide-list-filter"
+                    trailing-icon="i-lucide-chevron-down"
+                  >
                     Filtrar
-                    <UBadge v-if="activeFilterCount" color="primary" variant="solid" size="sm" class="ml-0.5">
+                    <UBadge
+                      v-if="activeFilterCount"
+                      color="primary"
+                      variant="solid"
+                      size="sm"
+                      class="ml-0.5"
+                    >
                       {{ activeFilterCount }}
                     </UBadge>
                   </UButton>
@@ -411,24 +551,68 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                     <div class="w-[300px] p-3.5">
                       <div class="mb-3 flex items-center justify-between">
                         <span class="text-[11px] font-semibold uppercase tracking-wider text-dimmed">Filtrar usuários</span>
-                        <UButton v-if="activeFilterCount" color="neutral" variant="link" size="xs" class="-mr-2" @click="clearFilters">
+                        <UButton
+                          v-if="activeFilterCount"
+                          color="neutral"
+                          variant="link"
+                          size="xs"
+                          class="-mr-2"
+                          @click="clearFilters"
+                        >
                           Limpar tudo
                         </UButton>
                       </div>
 
-                      <PortalFilterPills v-model="roleFilter" label="Tipo de acesso" :items="roleFilterItems" class="mb-3" />
+                      <PortalFilterPills
+                        v-model="roleFilter"
+                        label="Tipo de acesso"
+                        :items="roleFilterItems"
+                        class="mb-3"
+                      />
 
-                      <PortalFilterPills v-model="statusFilter" label="Status" :items="statusFilterItems" class="mb-3" />
+                      <PortalFilterPills
+                        v-model="statusFilter"
+                        label="Status"
+                        :items="statusFilterItems"
+                        class="mb-3"
+                      />
 
-                      <PortalFilterPills v-model="dateFilter" label="Última ligação" :items="dateFilterItems" />
-                      <div v-if="dateFilter === 'custom'" class="mt-2.5 space-y-2">
+                      <PortalFilterPills
+                        v-model="dateFilter"
+                        label="Última ligação"
+                        :items="dateFilterItems"
+                      />
+                      <div
+                        v-if="dateFilter === 'custom'"
+                        class="mt-2.5 space-y-2"
+                      >
                         <div class="flex items-center gap-2">
-                          <UInput v-model="customStart" type="date" :max="customEnd || undefined" size="sm" class="flex-1" aria-label="Data inicial" />
+                          <UInput
+                            v-model="customStart"
+                            type="date"
+                            :max="customEnd || undefined"
+                            size="sm"
+                            class="flex-1"
+                            aria-label="Data inicial"
+                          />
                           <span class="text-xs text-dimmed">até</span>
-                          <UInput v-model="customEnd" type="date" :min="customStart || undefined" size="sm" class="flex-1" aria-label="Data final" />
+                          <UInput
+                            v-model="customEnd"
+                            type="date"
+                            :min="customStart || undefined"
+                            size="sm"
+                            class="flex-1"
+                            aria-label="Data final"
+                          />
                         </div>
-                        <p v-if="customRangeInvalid" class="inline-flex items-center gap-1.5 text-xs font-medium text-error">
-                          <UIcon name="i-lucide-triangle-alert" class="h-3.5 w-3.5" />
+                        <p
+                          v-if="customRangeInvalid"
+                          class="inline-flex items-center gap-1.5 text-xs font-medium text-error"
+                        >
+                          <UIcon
+                            name="i-lucide-triangle-alert"
+                            class="h-3.5 w-3.5"
+                          />
                           A data inicial deve ser anterior à data final.
                         </p>
                       </div>
@@ -437,7 +621,11 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                 </UPopover>
               </div>
 
-              <PortalFilterChips :chips="activeFilterChips" class="mt-2.5" @clear-all="clearFilters" />
+              <PortalFilterChips
+                :chips="activeFilterChips"
+                class="mt-2.5"
+                @clear-all="clearFilters"
+              />
 
               <p class="mt-2.5 text-xs text-dimmed">
                 Mostrando <span class="font-semibold text-muted">{{ displayUsuarios.length }}</span> de {{ usuarios.length }} usuário{{ usuarios.length === 1 ? '' : 's' }}
@@ -445,10 +633,15 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
             </div>
             <div class="overflow-x-auto">
               <table class="w-full min-w-[560px] border-collapse">
-                <caption class="sr-only">Usuários da subconta com tipo de acesso, última ligação e status</caption>
+                <caption class="sr-only">
+                  Usuários da subconta com tipo de acesso, última ligação e status
+                </caption>
                 <thead>
                   <tr class="sticky top-0 z-10 bg-muted">
-                    <th scope="col" class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                    <th
+                      scope="col"
+                      class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
                       <button
                         type="button"
                         class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default"
@@ -456,11 +649,22 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                         @click="toggleSort('name')"
                       >
                         Usuário
-                        <UIcon :name="sortIcon('name')" class="h-3.5 w-3.5" />
+                        <UIcon
+                          :name="sortIcon('name')"
+                          class="h-3.5 w-3.5"
+                        />
                       </button>
                     </th>
-                    <th scope="col" class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Tipo de acesso</th>
-                    <th scope="col" class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
+                    <th
+                      scope="col"
+                      class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
+                      Tipo de acesso
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
                       <button
                         type="button"
                         class="-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-wider transition-colors hover:text-default"
@@ -468,10 +672,18 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                         @click="toggleSort('lastCall')"
                       >
                         Última ligação
-                        <UIcon :name="sortIcon('lastCall')" class="h-3.5 w-3.5" />
+                        <UIcon
+                          :name="sortIcon('lastCall')"
+                          class="h-3.5 w-3.5"
+                        />
                       </button>
                     </th>
-                    <th scope="col" class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">Status</th>
+                    <th
+                      scope="col"
+                      class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                    >
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -490,19 +702,39 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                           {{ initials(u.name) }}
                         </div>
                         <div class="min-w-0">
-                          <div class="truncate text-[13px] font-semibold" :title="u.name">{{ u.name }}</div>
-                          <div class="truncate font-mono text-[11px] text-dimmed" :title="u.email">{{ u.email }}</div>
+                          <div
+                            class="truncate text-[13px] font-semibold"
+                            :title="u.name"
+                          >
+                            {{ u.name }}
+                          </div>
+                          <div
+                            class="truncate font-mono text-[11px] text-dimmed"
+                            :title="u.email"
+                          >
+                            {{ u.email }}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td class="px-3.5 py-2.5">
+                      <!-- Sem escrita: o select SAI (nada de controle morto na tela);
+                           o papel continua visível como badge só-leitura. -->
                       <USelect
+                        v-if="ENABLE_ESCRITA_USUARIOS"
                         :model-value="u.role"
                         :items="roleItems"
                         size="sm"
                         class="w-[130px]"
                         @update:model-value="onRoleChange(u.id, $event as UsuarioRole)"
                       />
+                      <UBadge
+                        v-else
+                        :color="ROLE_BADGE[u.role].color"
+                        variant="subtle"
+                      >
+                        {{ ROLE_BADGE[u.role].label }}
+                      </UBadge>
                     </td>
                     <td class="px-3.5 py-2.5">
                       <span
@@ -512,7 +744,10 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                     </td>
                     <td class="px-5 py-2.5">
                       <div class="flex items-center gap-2.5">
+                        <!-- Só o toggle sai quando a escrita está desabilitada; a label
+                             de status continua, pois é informação legítima do usuário. -->
                         <USwitch
+                          v-if="ENABLE_ESCRITA_USUARIOS"
                           :model-value="u.active"
                           :aria-label="u.active ? `Desativar ${u.name}` : `Ativar ${u.name}`"
                           @update:model-value="onToggleActive(u)"
@@ -524,8 +759,14 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                       </div>
                     </td>
                   </tr>
-                  <tr v-if="displayUsuarios.length === 0" class="border-t border-default">
-                    <td colspan="4" class="px-5 py-10 text-center">
+                  <tr
+                    v-if="displayUsuarios.length === 0"
+                    class="border-t border-default"
+                  >
+                    <td
+                      colspan="4"
+                      class="px-5 py-10 text-center"
+                    >
                       <p class="text-[13px] text-dimmed">
                         {{ usuarios.length === 0 ? 'Nenhum usuário nesta subconta.' : 'Nenhum usuário corresponde aos filtros aplicados.' }}
                       </p>
@@ -561,18 +802,29 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
               />
             </div>
           </div>
-          <ContasNovoUsuarioModal v-model:open="novoUsuarioOpen" @created="onUsuarioCriado" />
+          <ContasNovoUsuarioModal
+            v-model:open="novoUsuarioOpen"
+            @created="onUsuarioCriado"
+          />
         </div>
 
-        <!-- Coluna direita -->
-        <div class="flex flex-col gap-[18px]">
+        <!-- Coluna direita — OCULTA (mock, sem endpoint no BFF). Ver SHOW_APIKEY_E_METADADOS. -->
+        <div
+          v-if="SHOW_APIKEY_E_METADADOS"
+          class="flex flex-col gap-[18px]"
+        >
           <!-- API Key -->
           <UCard>
             <div class="mb-3.5 flex items-center gap-2.5">
               <div class="grid h-[30px] w-[30px] place-items-center rounded-lg bg-brand-900 text-white">
-                <UIcon name="i-lucide-key-round" class="h-4 w-4" />
+                <UIcon
+                  name="i-lucide-key-round"
+                  class="h-4 w-4"
+                />
               </div>
-              <h2 class="text-base font-bold tracking-tight">API Key da Subconta</h2>
+              <h2 class="text-base font-bold tracking-tight">
+                API Key da Subconta
+              </h2>
             </div>
             <div class="flex items-center gap-2 rounded-xl bg-brand-900 px-3.5 py-3">
               <span class="flex-1 truncate font-mono text-xs text-brand-200">{{ maskedKey }}</span>
@@ -602,8 +854,13 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           <!-- Metadados -->
           <UCard>
             <div class="mb-1.5 flex items-center gap-2.5">
-              <UIcon name="i-lucide-activity" class="h-[17px] w-[17px] text-brand-700" />
-              <h2 class="text-base font-bold tracking-tight">Metadados de Observabilidade</h2>
+              <UIcon
+                name="i-lucide-activity"
+                class="h-[17px] w-[17px] text-brand-700"
+              />
+              <h2 class="text-base font-bold tracking-tight">
+                Metadados de Observabilidade
+              </h2>
             </div>
             <p class="mb-3.5 text-[11px] leading-relaxed text-dimmed">
               Referência para a engenharia mapear logs de integração e tracing.

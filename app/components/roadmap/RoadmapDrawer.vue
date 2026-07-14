@@ -40,9 +40,16 @@ function vote(reaction: 'like' | 'dislike') {
 </script>
 
 <template>
-  <USlideover v-model:open="open" :title="activeItem?.title" :description="activeItem?.summary">
+  <USlideover
+    v-model:open="open"
+    :title="activeItem?.title"
+    :description="activeItem?.summary"
+  >
     <template #body>
-      <div v-if="activeItem" class="space-y-5">
+      <div
+        v-if="activeItem"
+        class="space-y-5"
+      >
         <!-- Horizonte + abas -->
         <div class="flex flex-wrap items-center gap-2">
           <span
@@ -63,7 +70,10 @@ function vote(reaction: 'like' | 'dislike') {
             :class="tab === 'commercial' ? 'bg-primary text-inverted shadow-sm' : 'text-muted hover:text-default'"
             @click="tab = 'commercial'"
           >
-            <UIcon name="i-lucide-briefcase" class="h-4 w-4" /> Comercial
+            <UIcon
+              name="i-lucide-briefcase"
+              class="h-4 w-4"
+            /> Comercial
           </button>
           <button
             type="button"
@@ -71,27 +81,51 @@ function vote(reaction: 'like' | 'dislike') {
             :class="tab === 'technical' ? 'bg-primary text-inverted shadow-sm' : 'text-muted hover:text-default'"
             @click="tab = 'technical'"
           >
-            <UIcon name="i-lucide-code-2" class="h-4 w-4" /> Técnico
+            <UIcon
+              name="i-lucide-code-2"
+              class="h-4 w-4"
+            /> Técnico
           </button>
         </div>
 
         <!-- Comercial -->
-        <div v-if="tab === 'commercial'" class="space-y-6">
+        <div
+          v-if="tab === 'commercial'"
+          class="space-y-6"
+        >
           <section>
             <div class="mb-2.5 flex items-center gap-2">
-              <UIcon name="i-lucide-trending-up" class="h-4 w-4 text-primary" />
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">Valor de Negócio</h4>
+              <UIcon
+                name="i-lucide-trending-up"
+                class="h-4 w-4 text-primary"
+              />
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">
+                Valor de Negócio
+              </h4>
             </div>
-            <p v-if="activeItem.commercial.headline" class="rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm font-medium leading-relaxed text-brand-900">
+            <p
+              v-if="activeItem.commercial.headline"
+              class="rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm font-medium leading-relaxed text-brand-900"
+            >
               {{ activeItem.commercial.headline }}
             </p>
-            <p v-if="activeItem.commercial.businessValue" class="mt-3 text-sm leading-relaxed text-muted">{{ activeItem.commercial.businessValue }}</p>
+            <p
+              v-if="activeItem.commercial.businessValue"
+              class="mt-3 text-sm leading-relaxed text-muted"
+            >
+              {{ activeItem.commercial.businessValue }}
+            </p>
           </section>
 
           <section v-if="activeItem.commercial.files.length">
             <div class="mb-2.5 flex items-center gap-2">
-              <UIcon name="i-lucide-download" class="h-4 w-4 text-primary" />
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">Kit de Vendas</h4>
+              <UIcon
+                name="i-lucide-download"
+                class="h-4 w-4 text-primary"
+              />
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">
+                Kit de Vendas
+              </h4>
             </div>
             <div class="space-y-2">
               <a
@@ -103,30 +137,51 @@ function vote(reaction: 'like' | 'dislike') {
               >
                 <span class="flex items-center gap-3">
                   <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600">
-                    <UIcon name="i-lucide-file-text" class="h-4 w-4" />
+                    <UIcon
+                      name="i-lucide-file-text"
+                      class="h-4 w-4"
+                    />
                   </span>
                   <span class="text-sm font-medium">{{ f.label }}</span>
                 </span>
-                <UIcon name="i-lucide-download" class="h-4 w-4 text-dimmed transition-colors group-hover:text-brand-600" />
+                <UIcon
+                  name="i-lucide-download"
+                  class="h-4 w-4 text-dimmed transition-colors group-hover:text-brand-600"
+                />
               </a>
             </div>
           </section>
         </div>
 
         <!-- Técnico -->
-        <div v-else class="space-y-6">
+        <div
+          v-else
+          class="space-y-6"
+        >
           <section v-if="activeItem.technical.impactSummary">
             <div class="mb-2.5 flex items-center gap-2">
-              <UIcon name="i-lucide-zap" class="h-4 w-4 text-primary" />
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">Impacto Técnico</h4>
+              <UIcon
+                name="i-lucide-zap"
+                class="h-4 w-4 text-primary"
+              />
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">
+                Impacto Técnico
+              </h4>
             </div>
-            <p class="text-sm leading-relaxed text-muted">{{ activeItem.technical.impactSummary }}</p>
+            <p class="text-sm leading-relaxed text-muted">
+              {{ activeItem.technical.impactSummary }}
+            </p>
           </section>
 
           <section v-if="activeItem.technical.files.length">
             <div class="mb-2.5 flex items-center gap-2">
-              <UIcon name="i-lucide-file-code-2" class="h-4 w-4 text-primary" />
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">Documentação Técnica</h4>
+              <UIcon
+                name="i-lucide-file-code-2"
+                class="h-4 w-4 text-primary"
+              />
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">
+                Documentação Técnica
+              </h4>
             </div>
             <div class="space-y-2">
               <a
@@ -138,11 +193,17 @@ function vote(reaction: 'like' | 'dislike') {
               >
                 <span class="flex items-center gap-3">
                   <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-50 text-brand-600">
-                    <UIcon name="i-lucide-paperclip" class="h-4 w-4" />
+                    <UIcon
+                      name="i-lucide-paperclip"
+                      class="h-4 w-4"
+                    />
                   </span>
                   <span class="text-sm font-medium">{{ f.label }}</span>
                 </span>
-                <UIcon name="i-lucide-download" class="h-4 w-4 text-dimmed transition-colors group-hover:text-brand-600" />
+                <UIcon
+                  name="i-lucide-download"
+                  class="h-4 w-4 text-dimmed transition-colors group-hover:text-brand-600"
+                />
               </a>
             </div>
           </section>
@@ -156,7 +217,10 @@ function vote(reaction: 'like' | 'dislike') {
     </template>
 
     <template #footer>
-      <div v-if="activeItem" class="flex w-full gap-2">
+      <div
+        v-if="activeItem"
+        class="flex w-full gap-2"
+      >
         <UButton
           block
           size="lg"

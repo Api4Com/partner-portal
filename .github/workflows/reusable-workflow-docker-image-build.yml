@@ -1,0 +1,69 @@
+name: Reusable Workflow (Build Docker Image)
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        type: string
+        required: true
+      # Tag imutável adicional publicada junto:
+      #   git     -> git-<sha>   (default; staging/rollback por commit)
+      #   version -> v<version>  (produção; versão do package.json)
+      tag_mode:
+        type: string
+        required: false
+        default: 'git'
+
+jobs:
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Get repository name
+        id: repo-name
+        uses: MariachiBear/get-repo-name-action@v1.1.0
+        with:
+          string-case: 'lowercase'
+
+      # Start AWS environment
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to AWS ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      # End AWS environment
+
+      # As envs NUXT_PUBLIC_* do portal são lidas em RUNTIME pelo Nitro, então o
+      # build da imagem NÃO precisa de build-args — o target `production` builda
+      # sozinho (npm ci + nuxt build internos ao Dockerfile).
+      - name: Build, tag, and push image
+        id: build-image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ steps.repo-name.outputs.repository-name }}
+          ENVIRONMENT_IMAGE_TAG: ${{ inputs.image_tag }}
+          TAG_MODE: ${{ inputs.tag_mode }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY"
+          # Tag imutável (publicada junto da tag de ambiente). Prefixos distintos
+          # (git-/v) permitem a lifecycle policy do ECR escopar a limpeza sem
+          # tocar em staging/production:
+          #   version -> v<version> do package.json (produção)
+          #   git     -> git-<sha>                  (staging/rollback por commit)
+          if [ "$TAG_MODE" = "version" ]; then
+            IMMUTABLE_TAG="v$(jq -r .version package.json)"
+          else
+            IMMUTABLE_TAG="git-$GIT_SHA"
+          fi
+          docker build -t "$IMAGE:$ENVIRONMENT_IMAGE_TAG" -t "$IMAGE:$IMMUTABLE_TAG" --target production .
+          docker push "$IMAGE:$ENVIRONMENT_IMAGE_TAG"
+          docker push "$IMAGE:$IMMUTABLE_TAG"

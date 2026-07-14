@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { mapItem, type ItemRow, type ItemStateMap, type Reaction, type RoadmapItem } from '~/lib/roadmap'
 
 export interface AdminReaction {
@@ -38,7 +39,7 @@ export interface AdminData {
 }
 
 /** Todos os itens (inclui rascunhos) + reações + comentários + contagem. RLS exige admin. */
-export async function fetchAdminData(supabase: any): Promise<AdminData> {
+export async function fetchAdminData(supabase: SupabaseClient): Promise<AdminData> {
   const [itemsRes, interestsRes, commentsRes, profilesRes, countsRes, requestsRes] = await Promise.all([
     supabase
       .from('roadmap_items')

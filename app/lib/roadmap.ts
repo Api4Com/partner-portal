@@ -3,6 +3,8 @@
  * Lê do MESMO banco do portal Next (tabelas roadmap_* + RPCs com RLS).
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
+
 export type PartnerProfile = 'commercial' | 'technical'
 export type Horizon = 'now' | 'radar'
 
@@ -85,12 +87,9 @@ export function mapItem(r: ItemRow): RoadmapItem {
   }
 }
 
-/**
- * Itens publicados + estado de interação do usuário.
- * `supabase` tipado como `any` enquanto não geramos database.types.ts.
- */
+/** Itens publicados + estado de interação do usuário. */
 export async function fetchRoadmapData(
-  supabase: any,
+  supabase: SupabaseClient,
   userId: string
 ): Promise<{ items: RoadmapItem[], states: ItemStateMap, comments: CommentMap }> {
   const [{ data: itemsRaw }, { data: counts }, { data: myReactions }, { data: myComments }] = await Promise.all([

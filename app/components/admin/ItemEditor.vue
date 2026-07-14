@@ -48,13 +48,19 @@ function resetForm() {
   error.value = null
 }
 
-watch(open, (v) => { if (v) resetForm() }, { immediate: true })
+watch(open, (v) => {
+  if (v) resetForm()
+}, { immediate: true })
 
 const saving = ref(false)
 const error = ref<string | null>(null)
 
 async function save() {
   error.value = null
+  if (!supabase) {
+    error.value = 'Backend do roadmap não configurado.'
+    return
+  }
   if (!form.title.trim()) {
     error.value = 'Informe um título.'
     return
@@ -81,7 +87,7 @@ async function save() {
       files: form.technicalFiles
     }
   }
-  const { error: err } = await (supabase as any).from('roadmap_items').upsert(row, { onConflict: 'id' })
+  const { error: err } = await supabase.from('roadmap_items').upsert(row, { onConflict: 'id' })
   saving.value = false
   if (err) {
     error.value = err.message
@@ -105,20 +111,35 @@ async function save() {
     <template #body>
       <div class="space-y-5">
         <UFormField label="Título">
-          <UInput v-model="form.title" class="w-full" />
+          <UInput
+            v-model="form.title"
+            class="w-full"
+          />
         </UFormField>
 
         <div class="grid grid-cols-2 gap-4">
           <UFormField label="Horizonte">
-            <USelect v-model="form.horizon" :items="horizonItems" class="w-full" />
+            <USelect
+              v-model="form.horizon"
+              :items="horizonItems"
+              class="w-full"
+            />
           </UFormField>
           <UFormField label="Visibilidade">
-            <USelect v-model="form.published" :items="visibilityItems" class="w-full" />
+            <USelect
+              v-model="form.published"
+              :items="visibilityItems"
+              class="w-full"
+            />
           </UFormField>
         </div>
 
         <UFormField label="Resumo (linha do card)">
-          <UTextarea v-model="form.summary" :rows="2" class="w-full" />
+          <UTextarea
+            v-model="form.summary"
+            :rows="2"
+            class="w-full"
+          />
         </UFormField>
 
         <div class="flex items-center gap-3 pt-2">
@@ -126,13 +147,23 @@ async function save() {
           <span class="h-px flex-1 bg-default" />
         </div>
         <UFormField label="Headline (valor de negócio)">
-          <UInput v-model="form.headline" class="w-full" />
+          <UInput
+            v-model="form.headline"
+            class="w-full"
+          />
         </UFormField>
         <UFormField label="Valor de negócio (parágrafo)">
-          <UTextarea v-model="form.businessValue" :rows="4" class="w-full" />
+          <UTextarea
+            v-model="form.businessValue"
+            :rows="4"
+            class="w-full"
+          />
         </UFormField>
         <UFormField label="Kit de vendas — arquivos vinculados">
-          <AdminFileLinkEditor v-model="form.commercialFiles" :prefix="`${uploadPrefix}/commercial`" />
+          <AdminFileLinkEditor
+            v-model="form.commercialFiles"
+            :prefix="`${uploadPrefix}/commercial`"
+          />
         </UFormField>
 
         <div class="flex items-center gap-3 pt-2">
@@ -140,20 +171,45 @@ async function save() {
           <span class="h-px flex-1 bg-default" />
         </div>
         <UFormField label="Impacto técnico (parágrafo)">
-          <UTextarea v-model="form.impactSummary" :rows="3" class="w-full" />
+          <UTextarea
+            v-model="form.impactSummary"
+            :rows="3"
+            class="w-full"
+          />
         </UFormField>
         <UFormField label="Documentação técnica — arquivos vinculados">
-          <AdminFileLinkEditor v-model="form.technicalFiles" :prefix="`${uploadPrefix}/technical`" />
+          <AdminFileLinkEditor
+            v-model="form.technicalFiles"
+            :prefix="`${uploadPrefix}/technical`"
+          />
         </UFormField>
 
-        <UAlert v-if="error" color="error" variant="subtle" :title="error" icon="i-lucide-triangle-alert" />
+        <UAlert
+          v-if="error"
+          color="error"
+          variant="subtle"
+          :title="error"
+          icon="i-lucide-triangle-alert"
+        />
       </div>
     </template>
 
     <template #footer>
       <div class="flex w-full items-center justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="open = false">Cancelar</UButton>
-        <UButton icon="i-lucide-save" :loading="saving" @click="save">Salvar</UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="open = false"
+        >
+          Cancelar
+        </UButton>
+        <UButton
+          icon="i-lucide-save"
+          :loading="saving"
+          @click="save"
+        >
+          Salvar
+        </UButton>
       </div>
     </template>
   </USlideover>

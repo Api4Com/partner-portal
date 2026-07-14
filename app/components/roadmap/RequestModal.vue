@@ -12,7 +12,9 @@ function resetForm() {
   error.value = null
 }
 
-watch(open, (v) => { if (v) resetForm() })
+watch(open, (v) => {
+  if (v) resetForm()
+})
 
 async function submit() {
   error.value = null
@@ -34,7 +36,10 @@ async function submit() {
   >
     <template #body>
       <div class="space-y-5">
-        <UFormField label="Título da demanda" required>
+        <UFormField
+          label="Título da demanda"
+          required
+        >
           <UInput
             v-model="form.title"
             placeholder="Ex: Relatório de chamadas por período"
@@ -43,7 +48,10 @@ async function submit() {
           />
         </UFormField>
 
-        <UFormField label="Descreva sua necessidade" required>
+        <UFormField
+          label="Descreva sua necessidade"
+          required
+        >
           <UTextarea
             v-model="form.description"
             :rows="6"
@@ -53,13 +61,25 @@ async function submit() {
           />
         </UFormField>
 
-        <UAlert v-if="error" color="error" variant="subtle" :title="error" icon="i-lucide-triangle-alert" />
+        <UAlert
+          v-if="error"
+          color="error"
+          variant="subtle"
+          :title="error"
+          icon="i-lucide-triangle-alert"
+        />
       </div>
     </template>
 
     <template #footer>
       <div class="flex w-full items-center justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="open = false">Cancelar</UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="open = false"
+        >
+          Cancelar
+        </UButton>
         <UButton
           icon="i-lucide-send"
           :loading="sending"

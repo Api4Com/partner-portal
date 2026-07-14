@@ -7,8 +7,8 @@ export function useIsAdmin() {
   const user = useSupabaseUser()
 
   return useAsyncData('is-admin', async () => {
-    if (!user.value) return false
-    const { data } = await (supabase as any).rpc('roadmap_is_admin')
+    if (!user.value || !supabase) return false
+    const { data } = await supabase.rpc('roadmap_is_admin')
     return data === true
   }, {
     // Resolve no cliente (sessão garantida) e reavalia quando o usuário entra/sai —

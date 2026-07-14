@@ -41,33 +41,76 @@ async function remove(id: string) {
 <template>
   <section>
     <div class="mb-2.5 flex items-center gap-2">
-      <UIcon name="i-lucide-message-square" class="h-4 w-4 text-primary" />
-      <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">Meus comentários</h4>
+      <UIcon
+        name="i-lucide-message-square"
+        class="h-4 w-4 text-primary"
+      />
+      <h4 class="text-xs font-semibold uppercase tracking-wider text-muted">
+        Meus comentários
+      </h4>
     </div>
 
-    <div v-if="comments.length" class="mb-3 space-y-2">
+    <div
+      v-if="comments.length"
+      class="mb-3 space-y-2"
+    >
       <div
         v-for="c in comments"
         :key="c.id"
         class="rounded-xl border border-default bg-muted/40 p-3"
       >
         <template v-if="editingId === c.id">
-          <UTextarea v-model="editDraft" :rows="3" autoresize class="w-full" />
+          <UTextarea
+            v-model="editDraft"
+            :rows="3"
+            autoresize
+            class="w-full"
+          />
           <div class="mt-2 flex justify-end gap-2">
-            <UButton size="xs" color="neutral" variant="ghost" @click="cancelEdit">Cancelar</UButton>
-            <UButton size="xs" :loading="pending" icon="i-lucide-check" @click="saveEdit(c.id)">Salvar</UButton>
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              @click="cancelEdit"
+            >
+              Cancelar
+            </UButton>
+            <UButton
+              size="xs"
+              :loading="pending"
+              icon="i-lucide-check"
+              @click="saveEdit(c.id)"
+            >
+              Salvar
+            </UButton>
           </div>
         </template>
         <template v-else>
-          <p class="whitespace-pre-wrap text-sm leading-relaxed">{{ c.body }}</p>
+          <p class="whitespace-pre-wrap text-sm leading-relaxed">
+            {{ c.body }}
+          </p>
           <div class="mt-2 flex items-center justify-between">
             <span class="text-[11px] text-dimmed">
               {{ fmt(c.createdAt) }}
               <span v-if="c.updatedAt !== c.createdAt"> · editado</span>
             </span>
             <div class="flex items-center gap-1">
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" title="Editar" @click="startEdit(c.id, c.body)" />
-              <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" title="Excluir" @click="remove(c.id)" />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-pencil"
+                title="Editar"
+                @click="startEdit(c.id, c.body)"
+              />
+              <UButton
+                size="xs"
+                color="error"
+                variant="ghost"
+                icon="i-lucide-trash-2"
+                title="Excluir"
+                @click="remove(c.id)"
+              />
             </div>
           </div>
         </template>

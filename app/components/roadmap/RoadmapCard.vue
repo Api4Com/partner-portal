@@ -22,8 +22,13 @@ const myCommentCount = computed(() => myComments.value[props.item.id]?.length ??
     @keydown.space.prevent="openItem(item.id)"
   >
     <div class="flex items-start justify-between gap-2">
-      <h3 class="text-sm font-semibold leading-snug">{{ item.title }}</h3>
-      <UIcon name="i-lucide-arrow-up-right" class="h-4 w-4 shrink-0 text-dimmed transition-colors group-hover:text-brand-500" />
+      <h3 class="text-sm font-semibold leading-snug">
+        {{ item.title }}
+      </h3>
+      <UIcon
+        name="i-lucide-arrow-up-right"
+        class="h-4 w-4 shrink-0 text-dimmed transition-colors group-hover:text-brand-500"
+      />
     </div>
 
     <p class="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted">
@@ -43,7 +48,10 @@ const myCommentCount = computed(() => myComments.value[props.item.id]?.length ??
           title="Gostei"
           @click.stop="react(item.id, 'like')"
         >
-          <UIcon name="i-lucide-thumbs-up" class="h-3.5 w-3.5" />
+          <UIcon
+            name="i-lucide-thumbs-up"
+            class="h-3.5 w-3.5"
+          />
           {{ likeCount }}
         </button>
         <button
@@ -56,7 +64,10 @@ const myCommentCount = computed(() => myComments.value[props.item.id]?.length ??
           title="Não gostei"
           @click.stop="react(item.id, 'dislike')"
         >
-          <UIcon name="i-lucide-thumbs-down" class="h-3.5 w-3.5" />
+          <UIcon
+            name="i-lucide-thumbs-down"
+            class="h-3.5 w-3.5"
+          />
           {{ dislikeCount }}
         </button>
         <span
@@ -64,13 +75,19 @@ const myCommentCount = computed(() => myComments.value[props.item.id]?.length ??
           class="inline-flex items-center gap-1 text-xs font-medium text-muted"
           :title="`Você comentou ${myCommentCount} ${myCommentCount === 1 ? 'vez' : 'vezes'}`"
         >
-          <UIcon name="i-lucide-message-square" class="h-3.5 w-3.5" />
+          <UIcon
+            name="i-lucide-message-square"
+            class="h-3.5 w-3.5"
+          />
           {{ myCommentCount }}
         </span>
       </div>
 
       <span class="inline-flex items-center gap-1 text-xs font-medium text-primary">
-        Ver detalhes <UIcon name="i-lucide-arrow-up-right" class="h-3.5 w-3.5" />
+        Ver detalhes <UIcon
+          name="i-lucide-arrow-up-right"
+          class="h-3.5 w-3.5"
+        />
       </span>
     </div>
   </div>

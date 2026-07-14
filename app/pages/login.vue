@@ -1,67 +1,63 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const { login } = useAuth()
 
-type Mode = 'login' | 'signup'
-const mode = ref<Mode>('login')
 const loading = ref(false)
 const errorMsg = ref<string | null>(null)
-const confirmSent = ref(false)
+const showPassword = ref(false)
+
+// Limites de tamanho (também aplicados como `maxlength` nos inputs). E-mail segue
+// o limite prático do RFC 5321 (254); a senha tem um teto defensivo para evitar
+// payloads absurdos — o backend é a validação canônica, isto é só a 1ª barreira.
+const EMAIL_MAX = 254
+const PASSWORD_MAX = 128
 
 const state = reactive({
-  fullName: '',
-  company: '',
   email: '',
   password: ''
 })
 
-// Se já estiver logado, sai do login.
-watchEffect(() => {
-  if (user.value) navigateTo('/')
-})
-
-function translateError(msg: string): string {
-  if (/invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.'
-  if (/already registered/i.test(msg)) return 'Este e-mail já está cadastrado.'
-  if (/password should be at least/i.test(msg)) return 'A senha deve ter ao menos 6 caracteres.'
-  if (/email not confirmed/i.test(msg)) return 'Confirme seu e-mail antes de entrar.'
-  return msg
+// Mensagem de erro do BFF/pbxapi (LoopBack: { error: { message, code } }).
+function translateError(e: unknown): string {
+  const status = e as { statusCode?: number, status?: number, response?: { status?: number } }
+  const httpStatus = status?.statusCode ?? status?.status ?? status?.response?.status
+  // O BFF responde 403 quando a conta existe mas não é parceira.
+  if (httpStatus === 403) {
+    return 'Esta conta não tem acesso ao Portal de Parceiros.'
+  }
+  // 401 = credenciais inválidas (e-mail ou senha incorretos).
+  if (httpStatus === 401) {
+    return 'E-mail ou senha incorretos.'
+  }
+  const error = (e as { data?: { error?: { message?: string, code?: string } } })?.data?.error
+  if (error?.code === 'LOGIN_FAILED') return 'E-mail ou senha incorretos.'
+  if (error?.code === 'LOGIN_FAILED_EMAIL_NOT_VERIFIED') return 'Confirme seu e-mail antes de entrar.'
+  if (error?.code === 'EMAIL_NOT_FOUND') return 'E-mail não encontrado.'
+  if (error?.message) return error.message
+  if (e instanceof Error) return e.message
+  return 'Erro inesperado.'
 }
 
 async function onSubmit() {
+  // Guarda contra cliques rápidos: ignora submissões enquanto uma está em voo.
+  if (loading.value) return
   errorMsg.value = null
   loading.value = true
   try {
-    if (mode.value === 'login') {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: state.email,
-        password: state.password
-      })
-      if (error) throw error
-      await navigateTo('/')
-    } else {
-      const { data, error } = await supabase.auth.signUp({
-        email: state.email,
-        password: state.password,
-        options: { data: { full_name: state.fullName, company: state.company } }
-      })
-      if (error) throw error
-      if (!data.session) confirmSent.value = true
-      else await navigateTo('/')
-    }
+    await login(state.email, state.password)
+    await navigateTo('/')
   } catch (e) {
-    errorMsg.value = translateError(e instanceof Error ? e.message : 'Erro inesperado.')
+    errorMsg.value = translateError(e)
   } finally {
     loading.value = false
   }
 }
 
-function toggleMode() {
-  mode.value = mode.value === 'login' ? 'signup' : 'login'
-  errorMsg.value = null
-}
+// Não há cadastro por este portal: o BFF removeu o `POST /accounts/signup`, e a conta
+// parceira nasce pelo signup normal do api4com-portal + habilitação pelo time interno.
+// O formulário de cadastro (e o reCAPTCHA que o alimentava) saiu junto — mantê-lo seria
+// oferecer um caminho que responde 404.
 
 // Destaques do painel de marca
 const HIGHLIGHTS = [
@@ -81,7 +77,10 @@ onMounted(() => {
   function step() {
     const word = COM_WORDS[wordIndex]!
     if (!deleting && typed.value === word) {
-      typeTimer = setTimeout(() => { deleting = true; step() }, 1600)
+      typeTimer = setTimeout(() => {
+        deleting = true
+        step()
+      }, 1600)
       return
     }
     if (deleting && typed.value === '') {
@@ -97,7 +96,9 @@ onMounted(() => {
   step()
 })
 
-onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
+onBeforeUnmount(() => {
+  if (typeTimer) clearTimeout(typeTimer)
+})
 </script>
 
 <template>
@@ -108,11 +109,18 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
 
       <div class="relative flex items-center gap-3">
         <div class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 ring-1 ring-inset ring-white/15">
-          <UIcon name="i-lucide-radio" class="h-5 w-5" />
+          <UIcon
+            name="i-lucide-radio"
+            class="h-5 w-5"
+          />
         </div>
         <div class="leading-tight">
-          <p class="font-semibold tracking-tight">API4COM</p>
-          <p class="text-xs text-brand-200">Portal de Parceiros</p>
+          <p class="font-semibold tracking-tight">
+            API4COM
+          </p>
+          <p class="text-xs text-brand-200">
+            Portal de Parceiros
+          </p>
         </div>
       </div>
 
@@ -134,8 +142,15 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
         </p>
 
         <ul class="space-y-2.5 pt-1 text-sm text-brand-50">
-          <li v-for="t in HIGHLIGHTS" :key="t" class="flex items-center gap-2.5">
-            <UIcon name="i-lucide-circle-check" class="h-4 w-4 shrink-0 text-brand-400" />
+          <li
+            v-for="t in HIGHLIGHTS"
+            :key="t"
+            class="flex items-center gap-2.5"
+          >
+            <UIcon
+              name="i-lucide-circle-check"
+              class="h-4 w-4 shrink-0 text-brand-400"
+            />
             {{ t }}
           </li>
         </ul>
@@ -149,61 +164,78 @@ onBeforeUnmount(() => { if (typeTimer) clearTimeout(typeTimer) })
     <!-- Formulário -->
     <div class="flex items-center justify-center bg-default p-6">
       <div class="w-full max-w-sm">
-        <template v-if="confirmSent">
-          <div class="space-y-3 rounded-2xl border border-default bg-elevated/50 p-6 text-center">
-            <UIcon name="i-lucide-circle-check" class="mx-auto h-9 w-9 text-success" />
-            <h2 class="text-lg font-bold">Confirme seu e-mail</h2>
-            <p class="text-sm text-muted">
-              Enviamos um link de confirmação para <strong>{{ state.email }}</strong>. Após confirmar,
-              volte e faça login.
-            </p>
-            <UButton variant="link" @click="confirmSent = false; mode = 'login'">
-              Voltar para o login
-            </UButton>
-          </div>
-        </template>
+        <h2 class="text-2xl font-bold tracking-tight">
+          Acesse o portal
+        </h2>
+        <p class="mt-1 text-sm text-muted">
+          Entre para gerenciar suas subcontas e acompanhar a plataforma.
+        </p>
 
-        <template v-else>
-          <h2 class="text-2xl font-bold tracking-tight">
-            {{ mode === 'login' ? 'Acesse o portal' : 'Crie sua conta' }}
-          </h2>
-          <p class="mt-1 text-sm text-muted">
-            {{ mode === 'login'
-              ? 'Entre para gerenciar suas subcontas e acompanhar a plataforma.'
-              : 'Cadastre-se como parceiro para gerenciar suas subcontas e acessar a plataforma.' }}
-          </p>
+        <UForm
+          :state="state"
+          class="mt-6 space-y-3"
+          @submit="onSubmit"
+        >
+          <UFormField name="email">
+            <UInput
+              v-model="state.email"
+              type="email"
+              icon="i-lucide-mail"
+              placeholder="E-mail"
+              size="lg"
+              class="w-full"
+              :maxlength="EMAIL_MAX"
+              autocomplete="email"
+              required
+            />
+          </UFormField>
+          <UFormField name="password">
+            <UInput
+              v-model="state.password"
+              :type="showPassword ? 'text' : 'password'"
+              icon="i-lucide-lock"
+              placeholder="Senha"
+              size="lg"
+              class="w-full"
+              :ui="{ trailing: 'pe-1' }"
+              :maxlength="PASSWORD_MAX"
+              autocomplete="current-password"
+              required
+            >
+              <template #trailing>
+                <UButton
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  :icon="showPassword ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                  :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
+                  :aria-pressed="showPassword"
+                  tabindex="-1"
+                  @click="showPassword = !showPassword"
+                />
+              </template>
+            </UInput>
+          </UFormField>
 
-          <UForm :state="state" class="mt-6 space-y-3" @submit="onSubmit">
-            <template v-if="mode === 'signup'">
-              <UFormField name="fullName">
-                <UInput v-model="state.fullName" icon="i-lucide-user" placeholder="Seu nome" size="lg" class="w-full" required />
-              </UFormField>
-              <UFormField name="company">
-                <UInput v-model="state.company" icon="i-lucide-building-2" placeholder="Empresa / Revenda" size="lg" class="w-full" />
-              </UFormField>
-            </template>
+          <UAlert
+            v-if="errorMsg"
+            color="error"
+            variant="subtle"
+            :title="errorMsg"
+            icon="i-lucide-triangle-alert"
+          />
 
-            <UFormField name="email">
-              <UInput v-model="state.email" type="email" icon="i-lucide-mail" placeholder="E-mail" size="lg" class="w-full" required />
-            </UFormField>
-            <UFormField name="password">
-              <UInput v-model="state.password" type="password" icon="i-lucide-lock" placeholder="Senha" size="lg" class="w-full" required />
-            </UFormField>
-
-            <UAlert v-if="errorMsg" color="error" variant="subtle" :title="errorMsg" icon="i-lucide-triangle-alert" />
-
-            <UButton type="submit" :loading="loading" block size="lg" icon="i-lucide-briefcase">
-              {{ mode === 'login' ? 'Entrar' : 'Criar conta' }}
-            </UButton>
-          </UForm>
-
-          <p class="mt-6 text-center text-sm text-muted">
-            {{ mode === 'login' ? 'Ainda não tem conta?' : 'Já tem conta?' }}
-            <UButton variant="link" class="px-1" @click="toggleMode">
-              {{ mode === 'login' ? 'Cadastre-se' : 'Faça login' }}
-            </UButton>
-          </p>
-        </template>
+          <UButton
+            type="submit"
+            :loading="loading"
+            :disabled="loading"
+            block
+            size="lg"
+            icon="i-lucide-briefcase"
+          >
+            Entrar
+          </UButton>
+        </UForm>
       </div>
     </div>
   </div>
