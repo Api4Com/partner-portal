@@ -96,6 +96,18 @@ const customRangeInvalid = computed(() =>
   && customStart.value > customEnd.value
 )
 
+/** Período personalizado ainda sem as duas datas: nada a buscar. */
+const customRangePending = computed(() =>
+  periodo.value === 'custom' && (!customStart.value || !customEnd.value)
+)
+
+/**
+ * Só busca quando o filtro descreve um período de fato. Em "Personalizado" sem
+ * as duas datas (ou com intervalo invertido) o `range` seria `{}` — igual a
+ * "Qualquer data" — e a tela mostraria tudo em vez de esperar o usuário.
+ */
+const filtersReady = computed(() => !customRangePending.value && !customRangeInvalid.value)
+
 /** Período selecionado → { from, to } ISO para a query do BFF. */
 const range = computed<{ from?: string, to?: string }>(() => {
   const now = new Date()
@@ -184,6 +196,10 @@ async function loadSubaccounts() {
 
 async function loadSummary() {
   const seq = ++summarySeq
+  if (!filtersReady.value) {
+    summary.value = null
+    return
+  }
   try {
     const resp = await bffFetch<Summary>('/reports/summary', { query: baseQuery() })
     if (seq === summarySeq) summary.value = resp
@@ -194,8 +210,13 @@ async function loadSummary() {
 
 async function loadCalls() {
   const seq = ++callsSeq
-  loading.value = true
   errorMsg.value = ''
+  if (!filtersReady.value) {
+    callsResp.value = null
+    loading.value = false
+    return
+  }
+  loading.value = true
   try {
     const resp = await bffFetch<CallsPage>('/calls', {
       query: baseQuery({
@@ -223,8 +244,9 @@ async function loadCalls() {
  * período" = `lastCall` ausente (exato, inclusive com `to` no passado).
  */
 async function loadNoCalls() {
-  if (!includeNoCalls.value) {
+  if (!includeNoCalls.value || !filtersReady.value) {
     noCallRows.value = []
+    noCallsSeq++ // invalida respostas em voo
     return
   }
   const seq = ++noCallsSeq
@@ -267,6 +289,13 @@ async function loadNoCalls() {
 }
 
 /* ----- derivados para o template ----- */
+const emptyStateMessage = computed(() => {
+  if (customRangePending.value) return 'Escolha a data inicial e a data final para ver as chamadas do período.'
+  if (customRangeInvalid.value) return 'Corrija o intervalo: a data inicial deve ser anterior à data final.'
+  if (loading.value) return 'Carregando…'
+  return errorMsg.value || 'Nenhuma chamada encontrada com os filtros aplicados.'
+})
+
 const total = computed(() => callsResp.value?.total ?? 0)
 const totalPages = computed(() => callsResp.value?.pages ?? 1)
 const mappedCalls = computed(() => (callsResp.value?.data ?? []).map(toRow))
@@ -853,10 +882,10 @@ async function exportCsv() {
                   class="px-[22px] py-12 text-center"
                 >
                   <p class="text-[13px] text-dimmed">
-                    {{ loading ? 'Carregando…' : (errorMsg || 'Nenhuma chamada encontrada com os filtros aplicados.') }}
+                    {{ emptyStateMessage }}
                   </p>
                   <UButton
-                    v-if="hasActiveFilters && !loading"
+                    v-if="hasActiveFilters && !loading && filtersReady"
                     class="mt-2.5"
                     color="neutral"
                     variant="outline"
