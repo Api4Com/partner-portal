@@ -12,6 +12,12 @@ import {
   type UsuarioRole
 } from '~/lib/contas'
 
+// Chave de API e Metadados de Observabilidade estão OCULTOS por ora: os dois cards
+// ainda são alimentados por mock (`API_KEY`/`buildMeta` em `lib/contas.ts`) — o BFF
+// não expõe esses dados. O código fica no lugar, pronto para religar quando houver
+// endpoint real; basta virar esta flag para `true`.
+const SHOW_APIKEY_E_METADADOS = false
+
 /* ----- contrato do BFF ----- */
 interface BffSubaccount { id: string, name: string, users: number, minutes: number, status: 'active' | 'inactive' }
 interface BffSubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
@@ -338,7 +344,7 @@ function onToggleActive(u: Usuario) {
   })
 }
 
-/* ----- API key: mascarar/revelar/copiar ----- */
+/* ----- API key: mascarar/revelar/copiar (inativo enquanto SHOW_APIKEY_E_METADADOS = false) ----- */
 const revealed = ref(false)
 const maskedKey = computed(() =>
   revealed.value ? API_KEY : `${API_KEY.slice(0, 8)}${'•'.repeat(18)}${API_KEY.slice(-4)}`
@@ -407,8 +413,11 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
         </div>
       </div>
 
-      <div class="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.55fr_1fr]">
-        <!-- Coluna esquerda -->
+      <div
+        class="grid grid-cols-1 items-start gap-[18px]"
+        :class="SHOW_APIKEY_E_METADADOS ? 'lg:grid-cols-[1.55fr_1fr]' : ''"
+      >
+        <!-- Coluna esquerda (única enquanto a coluna direita está oculta) -->
         <div class="flex flex-col gap-[18px]">
           <!-- Modelo comercial -->
           <UCard>
@@ -777,8 +786,11 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           />
         </div>
 
-        <!-- Coluna direita -->
-        <div class="flex flex-col gap-[18px]">
+        <!-- Coluna direita — OCULTA (mock, sem endpoint no BFF). Ver SHOW_APIKEY_E_METADADOS. -->
+        <div
+          v-if="SHOW_APIKEY_E_METADADOS"
+          class="flex flex-col gap-[18px]"
+        >
           <!-- API Key -->
           <UCard>
             <div class="mb-3.5 flex items-center gap-2.5">

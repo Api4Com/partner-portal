@@ -31,11 +31,25 @@ export function useAuth() {
   const accessToken = useCookie<string | null>('access_token', cookieOpts)
   const user = useState<PbxUser | null>('auth-user', () => null)
 
-  const bffBase = useRuntimeConfig().public.bffBase
+  // No SSR o BFF é alcançado pelo hostname da rede interna; no browser, pela URL
+  // pública. Usar a pública no servidor dá ECONNREFUSED dentro do docker.
+  const config = useRuntimeConfig()
+  const bffBase = import.meta.server && config.bffInternalBase
+    ? config.bffInternalBase
+    : config.public.bffBase
 
   function clearSession() {
     accessToken.value = null
     user.value = null
+  }
+
+  // Só 401/403 significam "a sessão/conta não vale mais". Erro de rede, timeout ou
+  // 5xx do BFF são falhas TRANSITÓRIAS: derrubar a sessão nesses casos desloga o
+  // usuário por um soluço de infra (era o que acontecia no refresh, via SSR).
+  function isAuthFailure(err: unknown): boolean {
+    const e = err as { response?: { status?: number }, statusCode?: number }
+    const status = e?.response?.status ?? e?.statusCode
+    return status === 401 || status === 403
   }
 
   async function login(email: string, password: string) {
@@ -59,9 +73,11 @@ export function useAuth() {
         baseURL: bffBase,
         headers: { Authorization: `Bearer ${accessToken.value}` }
       })
-    } catch {
-      // Token inválido/expirado: sem refresh, a sessão simplesmente cai.
-      clearSession()
+    } catch (err) {
+      // Token inválido/expirado ou conta sem acesso: sem refresh, a sessão cai.
+      // Falha transitória (rede/5xx): PRESERVA o token — a próxima navegação tenta
+      // de novo. Limpar aqui deslogaria por um blip do BFF.
+      if (isAuthFailure(err)) clearSession()
     }
     return user.value
   }
@@ -79,6 +95,18 @@ export function useAuth() {
     clearSession()
   }
 
+  // Nem todo 403 é fatal para a sessão, e a distinção importa:
+  //
+  // - 403 do PartnerGuard ("Acesso restrito a contas parceiras"): a CONTA não é (ou
+  //   deixou de ser) parceira — ex.: parceiro desativado enquanto logado. Toda rota
+  //   passa a responder isso; manter o usuário "logado" só renderiza telas quebradas.
+  //   → derruba a sessão.
+  // - 403 de RECURSO (ex.: `GET /subaccounts/:id/users` nega PII de usuários ao papel
+  //   PARTNER, por design): a sessão está VÁLIDA, só aquele dado é proibido. Derrubar
+  //   a sessão aqui deslogaria o parceiro ao abrir o detalhe da subconta.
+  //   → repassa o erro; quem chamou já sabe tolerar (lista vazia).
+  const PARTNER_GUARD_403 = 'Acesso restrito a contas parceiras'
+
   // Em 401 a sessão acabou (não há refresh): limpa e manda para o /login.
   async function bffFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
     try {
@@ -95,7 +123,16 @@ export function useAuth() {
         }
       }) as T
     } catch (err) {
-      if ((err as { response?: { status?: number } })?.response?.status === 401) {
+      const e = err as {
+        response?: { status?: number }
+        statusCode?: number
+        data?: { message?: string }
+      }
+      const httpStatus = e?.response?.status ?? e?.statusCode
+      const isDeactivatedPartner
+        = httpStatus === 403 && e?.data?.message === PARTNER_GUARD_403
+
+      if (httpStatus === 401 || isDeactivatedPartner) {
         clearSession()
         await navigateTo('/login')
       }
