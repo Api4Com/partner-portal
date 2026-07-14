@@ -12,6 +12,19 @@ import {
   type UsuarioRole
 } from '~/lib/contas'
 
+// Chave de API e Metadados de Observabilidade estão OCULTOS por ora: os dois cards
+// ainda são alimentados por mock (`API_KEY`/`buildMeta` em `lib/contas.ts`) — o BFF
+// não expõe esses dados. O código fica no lugar, pronto para religar quando houver
+// endpoint real; basta virar esta flag para `true`.
+const SHOW_APIKEY_E_METADADOS = false
+
+// Escrita de usuários da subconta (adicionar, trocar tipo de acesso, ativar/desativar)
+// está DESABILITADA: o BFF ainda não expõe endpoints de escrita, então essas ações são
+// otimistas e LOCAIS — mudam a tela, não mudam nada de verdade e somem no reload. Pior
+// que não ter: passam a impressão de que a alteração foi aplicada.
+// A UI e os handlers ficam no lugar; virar para `true` quando o BFF expuser a escrita.
+const ENABLE_ESCRITA_USUARIOS = false
+
 /* ----- contrato do BFF ----- */
 interface BffSubaccount { id: string, name: string, users: number, minutes: number, status: 'active' | 'inactive' }
 interface BffSubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
@@ -236,13 +249,14 @@ watch([search, roleFilter, statusFilter, dateFilter, customStart, customEnd], ()
 })
 
 const filteredUsuarios = computed(() => {
-  const q = search.value.trim().toLowerCase()
+  const q = normalizeSearch(search.value.trim())
   return usuarios.value.filter((u) => {
-    const matchesSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    const matchesRole = roleFilter.value === 'all' || u.role === roleFilter.value
-    const matchesStatus = statusFilter.value === 'all'
+    // Busca ignora acento e caixa nos dois sentidos ("te" acha "Tétheu" e vice-versa).
+    const okSearch = !q || matchesSearch(u.name, q) || matchesSearch(u.email, q)
+    const okRole = roleFilter.value === 'all' || u.role === roleFilter.value
+    const okStatus = statusFilter.value === 'all'
       || (statusFilter.value === 'active' ? u.active : !u.active)
-    return matchesSearch && matchesRole && matchesStatus && withinLastCall(u.lastCall)
+    return okSearch && okRole && okStatus && withinLastCall(u.lastCall)
   })
 })
 
@@ -338,7 +352,7 @@ function onToggleActive(u: Usuario) {
   })
 }
 
-/* ----- API key: mascarar/revelar/copiar ----- */
+/* ----- API key: mascarar/revelar/copiar (inativo enquanto SHOW_APIKEY_E_METADADOS = false) ----- */
 const revealed = ref(false)
 const maskedKey = computed(() =>
   revealed.value ? API_KEY : `${API_KEY.slice(0, 8)}${'•'.repeat(18)}${API_KEY.slice(-4)}`
@@ -407,8 +421,11 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
         </div>
       </div>
 
-      <div class="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[1.55fr_1fr]">
-        <!-- Coluna esquerda -->
+      <div
+        class="grid grid-cols-1 items-start gap-[18px]"
+        :class="SHOW_APIKEY_E_METADADOS ? 'lg:grid-cols-[1.55fr_1fr]' : ''"
+      >
+        <!-- Coluna esquerda (única enquanto a coluna direita está oculta) -->
         <div class="flex flex-col gap-[18px]">
           <!-- Modelo comercial -->
           <UCard>
@@ -498,6 +515,7 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                   </p>
                 </div>
                 <UButton
+                  v-if="ENABLE_ESCRITA_USUARIOS"
                   icon="i-lucide-user-plus"
                   @click="novoUsuarioOpen = true"
                 >
@@ -700,13 +718,23 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                       </div>
                     </td>
                     <td class="px-3.5 py-2.5">
+                      <!-- Sem escrita: o select SAI (nada de controle morto na tela);
+                           o papel continua visível como badge só-leitura. -->
                       <USelect
+                        v-if="ENABLE_ESCRITA_USUARIOS"
                         :model-value="u.role"
                         :items="roleItems"
                         size="sm"
                         class="w-[130px]"
                         @update:model-value="onRoleChange(u.id, $event as UsuarioRole)"
                       />
+                      <UBadge
+                        v-else
+                        :color="ROLE_BADGE[u.role].color"
+                        variant="subtle"
+                      >
+                        {{ ROLE_BADGE[u.role].label }}
+                      </UBadge>
                     </td>
                     <td class="px-3.5 py-2.5">
                       <span
@@ -716,7 +744,10 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                     </td>
                     <td class="px-5 py-2.5">
                       <div class="flex items-center gap-2.5">
+                        <!-- Só o toggle sai quando a escrita está desabilitada; a label
+                             de status continua, pois é informação legítima do usuário. -->
                         <USwitch
+                          v-if="ENABLE_ESCRITA_USUARIOS"
                           :model-value="u.active"
                           :aria-label="u.active ? `Desativar ${u.name}` : `Ativar ${u.name}`"
                           @update:model-value="onToggleActive(u)"
@@ -777,8 +808,11 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
           />
         </div>
 
-        <!-- Coluna direita -->
-        <div class="flex flex-col gap-[18px]">
+        <!-- Coluna direita — OCULTA (mock, sem endpoint no BFF). Ver SHOW_APIKEY_E_METADADOS. -->
+        <div
+          v-if="SHOW_APIKEY_E_METADADOS"
+          class="flex flex-col gap-[18px]"
+        >
           <!-- API Key -->
           <UCard>
             <div class="mb-3.5 flex items-center gap-2.5">

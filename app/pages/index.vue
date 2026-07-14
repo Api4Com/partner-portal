@@ -64,9 +64,10 @@ const totalMinutes = computed(() => subaccounts.value.reduce((sum, x) => sum + (
 const maxMin = computed(() => Math.max(...subaccounts.value.map(s => s.minutes), 1))
 
 const rows = computed(() => {
-  const q = search.value.trim().toLowerCase()
+  // Busca ignora acento e caixa nos dois sentidos ("te" acha "Tétheu" e vice-versa).
+  const q = normalizeSearch(search.value.trim())
   return subaccounts.value.filter(s =>
-    (!q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q))
+    (!q || matchesSearch(s.name, q) || matchesSearch(s.id, q))
     && (statusFilter.value === 'all' || s.status === statusFilter.value)
   )
 })

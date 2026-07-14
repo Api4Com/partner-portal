@@ -14,6 +14,7 @@ interface BffCall {
   durationSeconds: number
   number: string | null
   cause: 'answered' | 'no_answer' | 'busy' | 'failed' | 'canceled'
+  recordingUrl: string | null
 }
 interface CallsPage { data: BffCall[], total: number, page: number, pageSize: number, pages: number }
 interface Summary {
@@ -38,6 +39,7 @@ interface ReportRow {
   duration: number
   number: string
   cause: HangupCause | null
+  recording: string | null
 }
 
 // O BFF devolve a causa em inglês; o badge da UI usa os rótulos PT.
@@ -93,6 +95,18 @@ const customRangeInvalid = computed(() =>
   && !!customEnd.value
   && customStart.value > customEnd.value
 )
+
+/** Período personalizado ainda sem as duas datas: nada a buscar. */
+const customRangePending = computed(() =>
+  periodo.value === 'custom' && (!customStart.value || !customEnd.value)
+)
+
+/**
+ * Só busca quando o filtro descreve um período de fato. Em "Personalizado" sem
+ * as duas datas (ou com intervalo invertido) o `range` seria `{}` — igual a
+ * "Qualquer data" — e a tela mostraria tudo em vez de esperar o usuário.
+ */
+const filtersReady = computed(() => !customRangePending.value && !customRangeInvalid.value)
 
 /** Período selecionado → { from, to } ISO para a query do BFF. */
 const range = computed<{ from?: string, to?: string }>(() => {
@@ -167,7 +181,8 @@ function toRow(c: BffCall): ReportRow {
     date: c.date ?? '',
     duration: c.durationSeconds,
     number: c.number ?? '',
-    cause: CAUSE_EN_PT[c.cause] ?? 'falha'
+    cause: CAUSE_EN_PT[c.cause] ?? 'falha',
+    recording: c.recordingUrl
   }
 }
 
@@ -181,6 +196,10 @@ async function loadSubaccounts() {
 
 async function loadSummary() {
   const seq = ++summarySeq
+  if (!filtersReady.value) {
+    summary.value = null
+    return
+  }
   try {
     const resp = await bffFetch<Summary>('/reports/summary', { query: baseQuery() })
     if (seq === summarySeq) summary.value = resp
@@ -191,8 +210,13 @@ async function loadSummary() {
 
 async function loadCalls() {
   const seq = ++callsSeq
-  loading.value = true
   errorMsg.value = ''
+  if (!filtersReady.value) {
+    callsResp.value = null
+    loading.value = false
+    return
+  }
+  loading.value = true
   try {
     const resp = await bffFetch<CallsPage>('/calls', {
       query: baseQuery({
@@ -220,12 +244,14 @@ async function loadCalls() {
  * período" = `lastCall` ausente (exato, inclusive com `to` no passado).
  */
 async function loadNoCalls() {
-  if (!includeNoCalls.value) {
+  if (!includeNoCalls.value || !filtersReady.value) {
     noCallRows.value = []
+    noCallsSeq++ // invalida respostas em voo
     return
   }
   const seq = ++noCallsSeq
-  const q = search.value.trim().toLowerCase()
+  // Busca ignora acento e caixa nos dois sentidos ("te" acha "Tétheu" e vice-versa).
+  const q = normalizeSearch(search.value.trim())
   const rows: ReportRow[] = []
   for (const s of scopeSubs.value) {
     let users: SubUser[] = []
@@ -242,7 +268,7 @@ async function loadNoCalls() {
     }
     for (const u of users) {
       if (u.lastCall) continue // teve chamada NO PERÍODO
-      if (q && !u.name.toLowerCase().includes(q) && !s.name.toLowerCase().includes(q)) continue
+      if (q && !matchesSearch(u.name, q) && !matchesSearch(s.name, q)) continue
       rows.push({
         id: `nocall-${s.id}-${u.id}`,
         subId: s.id,
@@ -254,7 +280,8 @@ async function loadNoCalls() {
         date: '',
         duration: 0,
         number: '',
-        cause: null
+        cause: null,
+        recording: null
       })
     }
   }
@@ -262,6 +289,13 @@ async function loadNoCalls() {
 }
 
 /* ----- derivados para o template ----- */
+const emptyStateMessage = computed(() => {
+  if (customRangePending.value) return 'Escolha a data inicial e a data final para ver as chamadas do período.'
+  if (customRangeInvalid.value) return 'Corrija o intervalo: a data inicial deve ser anterior à data final.'
+  if (loading.value) return 'Carregando…'
+  return errorMsg.value || 'Nenhuma chamada encontrada com os filtros aplicados.'
+})
+
 const total = computed(() => callsResp.value?.total ?? 0)
 const totalPages = computed(() => callsResp.value?.pages ?? 1)
 const mappedCalls = computed(() => (callsResp.value?.data ?? []).map(toRow))
@@ -422,14 +456,15 @@ async function exportCsv() {
     } while (p <= pages)
     rows.push(...noCallRows.value)
 
-    const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento']
+    const headers = ['Usuário', 'Subconta', 'Data da ligação', 'Duração (s)', 'Número discado', 'Causa do desligamento', 'Link da gravação']
     const lines = rows.map(c => [
       c.userName ?? '',
       c.subName ?? '',
       c.date ? fmtCallDate(c.date) : 'Sem ligação',
       c.duration || '',
       c.number,
-      c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação'
+      c.cause ? CAUSE_BADGE[c.cause].label : 'Sem ligação',
+      c.recording ?? ''
     ].map(csvCell).join(';'))
 
     const csv = [headers.map(csvCell).join(';'), ...lines].join('\r\n')
@@ -686,7 +721,7 @@ async function exportCsv() {
         <div class="overflow-x-auto">
           <table class="w-full min-w-[900px] border-collapse">
             <caption class="sr-only">
-              Detalhamento de chamadas com usuário, data, duração, número discado e causa de desligamento
+              Detalhamento de chamadas com usuário, data, duração, número discado, causa de desligamento e gravação
             </caption>
             <thead>
               <tr class="bg-muted/50">
@@ -753,6 +788,12 @@ async function exportCsv() {
                 >
                   Causa do desligamento
                 </th>
+                <th
+                  scope="col"
+                  class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed"
+                >
+                  Gravação
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -814,20 +855,37 @@ async function exportCsv() {
                     Sem ligação
                   </UBadge>
                 </td>
+                <td class="py-3 pl-3.5 pr-[22px] text-right">
+                  <UButton
+                    v-if="c.recording"
+                    :to="c.recording"
+                    target="_blank"
+                    color="neutral"
+                    variant="outline"
+                    size="xs"
+                    icon="i-lucide-play"
+                  >
+                    Ouvir
+                  </UButton>
+                  <span
+                    v-else
+                    class="text-xs text-dimmed"
+                  >—</span>
+                </td>
               </tr>
               <tr
                 v-if="pagedCalls.length === 0"
                 class="border-t border-default"
               >
                 <td
-                  colspan="5"
+                  colspan="6"
                   class="px-[22px] py-12 text-center"
                 >
                   <p class="text-[13px] text-dimmed">
-                    {{ loading ? 'Carregando…' : (errorMsg || 'Nenhuma chamada encontrada com os filtros aplicados.') }}
+                    {{ emptyStateMessage }}
                   </p>
                   <UButton
-                    v-if="hasActiveFilters && !loading"
+                    v-if="hasActiveFilters && !loading && filtersReady"
                     class="mt-2.5"
                     color="neutral"
                     variant="outline"

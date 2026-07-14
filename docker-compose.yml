@@ -20,6 +20,11 @@ services:
       - NUXT_PUBLIC_BFF_BASE_URL=http://localhost:3005
       # URL do BFF para chamadas SSR (dentro da rede docker, via container `partner-portal-bff`).
       - BFF_INTERNAL_URL=http://partner-portal-bff:3000
+
+      # Supabase: fonte de dados do roadmap/admin (NÃO é auth — o login é do pbx).
+      # Repassa do .env local; se não existir, o roadmap só carrega vazio.
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
     networks:
       - default
       - api4com-network

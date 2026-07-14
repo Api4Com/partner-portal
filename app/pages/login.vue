@@ -7,6 +7,12 @@ const loading = ref(false)
 const errorMsg = ref<string | null>(null)
 const showPassword = ref(false)
 
+// Limites de tamanho (também aplicados como `maxlength` nos inputs). E-mail segue
+// o limite prático do RFC 5321 (254); a senha tem um teto defensivo para evitar
+// payloads absurdos — o backend é a validação canônica, isto é só a 1ª barreira.
+const EMAIL_MAX = 254
+const PASSWORD_MAX = 128
+
 const state = reactive({
   email: '',
   password: ''
@@ -14,10 +20,15 @@ const state = reactive({
 
 // Mensagem de erro do BFF/pbxapi (LoopBack: { error: { message, code } }).
 function translateError(e: unknown): string {
+  const status = e as { statusCode?: number, status?: number, response?: { status?: number } }
+  const httpStatus = status?.statusCode ?? status?.status ?? status?.response?.status
   // O BFF responde 403 quando a conta existe mas não é parceira.
-  if ((e as { statusCode?: number, status?: number })?.statusCode === 403
-    || (e as { status?: number })?.status === 403) {
+  if (httpStatus === 403) {
     return 'Esta conta não tem acesso ao Portal de Parceiros.'
+  }
+  // 401 = credenciais inválidas (e-mail ou senha incorretos).
+  if (httpStatus === 401) {
+    return 'E-mail ou senha incorretos.'
   }
   const error = (e as { data?: { error?: { message?: string, code?: string } } })?.data?.error
   if (error?.code === 'LOGIN_FAILED') return 'E-mail ou senha incorretos.'
@@ -29,6 +40,8 @@ function translateError(e: unknown): string {
 }
 
 async function onSubmit() {
+  // Guarda contra cliques rápidos: ignora submissões enquanto uma está em voo.
+  if (loading.value) return
   errorMsg.value = null
   loading.value = true
   try {
@@ -50,7 +63,7 @@ async function onSubmit() {
 const HIGHLIGHTS = [
   'Painel de subcontas, usuários e consumo',
   'Relatórios de chamadas com export e gravações',
-  'Roadmap e acesso antecipado aos betas'
+  'Roadmap de produto: vote e comente as próximas entregas'
 ]
 
 // Animação "typewriter" no logotipo API4COM — troca a terminação "COM".
@@ -168,6 +181,8 @@ onBeforeUnmount(() => {
               placeholder="E-mail"
               size="lg"
               class="w-full"
+              :maxlength="EMAIL_MAX"
+              autocomplete="email"
               required
             />
           </UFormField>
@@ -180,6 +195,8 @@ onBeforeUnmount(() => {
               size="lg"
               class="w-full"
               :ui="{ trailing: 'pe-1' }"
+              :maxlength="PASSWORD_MAX"
+              autocomplete="current-password"
               required
             >
               <template #trailing>
@@ -208,6 +225,7 @@ onBeforeUnmount(() => {
           <UButton
             type="submit"
             :loading="loading"
+            :disabled="loading"
             block
             size="lg"
             icon="i-lucide-briefcase"

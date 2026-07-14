@@ -8,6 +8,7 @@ const operacao = [
   { label: 'Relatório', icon: 'i-lucide-chart-column', to: '/relatorio' }
 ]
 const plataforma = [
+  { label: 'Credenciais', icon: 'i-lucide-key-round', to: '/credenciais' },
   { label: 'Playbook', icon: 'i-lucide-cable', disabled: true }
 ]
 const adminItems = [{ label: 'Admin', icon: 'i-lucide-shield', to: '/admin' }]

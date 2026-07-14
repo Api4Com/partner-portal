@@ -1,9 +1,40 @@
 <script setup lang="ts">
-// TODO: o Admin dependia inteiramente do Supabase (gating + dados). Com a saída
-// do Supabase, a área fica desativada até reimplementarmos sobre o novo backend.
-await navigateTo('/')
+import { fetchAdminData } from '~/lib/admin'
+
+const supabase = useSupabaseClient()
+const user = useSupabaseUser()
+
+// Resolve no cliente (sessão garantida) — evita falso "não-admin" quando o SSR roda sem sessão.
+const { data, status } = useAsyncData('admin', async () => {
+  if (!user.value || !supabase) return null
+  const { data: ok } = await supabase.rpc('roadmap_is_admin')
+  if (ok !== true) return null
+  return await fetchAdminData(supabase)
+}, { server: false, lazy: true, default: () => null, watch: [user] })
+
+// Redireciona só depois de resolver e confirmar que não é admin.
+watchEffect(() => {
+  if (import.meta.client && status.value === 'success' && user.value && !data.value) {
+    navigateTo('/')
+  }
+})
 </script>
 
 <template>
-  <div />
+  <AdminDashboard
+    v-if="data"
+    :data="data"
+    :user-email="user?.email ?? ''"
+  />
+  <div
+    v-else-if="status === 'pending'"
+    class="grid flex-1 place-items-center text-sm text-muted"
+  >
+    <span class="inline-flex items-center gap-2">
+      <UIcon
+        name="i-lucide-loader-circle"
+        class="h-4 w-4 animate-spin"
+      /> Carregando painel…
+    </span>
+  </div>
 </template>
