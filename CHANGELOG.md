@@ -7,32 +7,71 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [1.0.0] - 2026-07-11
 
-Primeira versão do produto **partner-portal** (UI Nuxt 4 do portal do parceiro).
+Primeira versão do produto **partner-portal** (UI Nuxt 4 do portal do parceiro) e
+**primeiro deploy em produção**.
 
 O parceiro acessa este portal para enxergar a hierarquia abaixo dele — suas
-subcontas e os usuários de cada uma — incluindo chamadas, relatórios e KPIs.
-O backend-alvo é o `partner-portal-bff`.
+subcontas e os usuários de cada uma — incluindo chamadas, relatórios e KPIs. O
+backend-alvo é o `partner-portal-bff` (que compõe core-service + pbxapi).
 
 ### Adicionado
-- Portal do parceiro (Nuxt 4, SSR): páginas de login, painel, subcontas
-  (`clientes/[id]`), relatórios, roadmap e agente.
-- Tela de Relatórios: filtros (subcontas, período, busca, sort, paginação) e
-  5 KPIs (Subcontas, Usuários, Ativos 7d, Volume, Taxa de atendimento).
-- Autenticação via JWT do Core (login/refresh/logout), com `useAuth` falando
-  com o `partner-portal-bff`.
-- Health check público `GET /health`.
-- Deploy em staging (docker-compose no host, imagem `partner-portal:staging`
-  no ECR us-east-1).
-- Pipelines de imagem: **staging** (manual via `workflow_dispatch`) e
-  **production** (na publicação de GitHub Release). Cada build publica a tag de
-  ambiente + uma tag imutável (`git-<sha>` em staging, `v<version>` em produção)
-  para rollback e para a lifecycle policy do ECR.
-- Lint (ESLint) + typecheck (vue-tsc) como gate obrigatório: reprovam a criação
-  da imagem em erro.
 
-### Infra
-- Atualização das referências do backend de `bff-portal` para
-  `partner-portal-bff` (fallout do rename do repo/ECR do BFF).
-- Guardrail de não-deleção das imagens no ECR (repository policy).
-- Lifecycle policy do ECR: mantém as últimas 50 releases (`v*`) e 30 imagens de
-  rollback (`git-*`); expira imagens órfãs após 15 dias.
+**Autenticação e sessão**
+- Login pelo BFF (proxy do pbxapi); token de sessão do pbx em cookie `access_token`
+  (SSR-safe, `secure` em produção).
+- Refresh token **httpOnly via BFF**, fora do alcance do JS (TEL-1979 FRONT-1).
+- Middleware global de proteção de rotas (pública: `/login`).
+- Tratamento de erro consciente: só 401/403 derrubam a sessão; 403 do PartnerGuard
+  (conta não-parceira) desloga, mas 403 de recurso (ex.: PII de usuários ao papel
+  PARTNER) é tolerado sem deslogar. Falhas transitórias (rede/5xx) preservam a sessão.
+- Tela de login com animação typewriter API4COM; toggle de visibilidade de senha.
+  Signup temporariamente desabilitado.
+
+**Painel Geral**
+- Consome o BFF (`/subaccounts` + `/reports/summary`): lista de subcontas com status
+  real (inferido), 4 KPIs (subcontas, ligando nos últimos 7d, volume do mês, taxa de
+  atendimento), barra de volumetria por status e paginação.
+- Wizard de nova subconta que cria de verdade (`POST /subaccounts`) com reCAPTCHA.
+
+**Detalhe da subconta**
+- Usuários da subconta via BFF (`/subaccounts/:id/users`) e volumetria via
+  `/reports/summary` escopado; filtros estilo Pipedrive (busca, acesso, status,
+  data com intervalo personalizado) e breadcrumb.
+
+**Relatórios**
+- Consome o BFF (`/subaccounts`, `/calls`, `/reports/summary`): filtros (subcontas
+  multi, período incl. personalizado, busca sem acento, sort, paginação), 5 KPIs,
+  URL de gravação por chamada e export CSV. Descarte de respostas obsoletas por
+  sequência (filtros mudam rápido).
+
+**Credenciais**
+- Gestão de credenciais/API keys do parceiro: listagem, criação (modal) e ações.
+
+**Roadmap**
+- Roadmap do parceiro: solicitação de demandas com gestão no admin, upload de
+  arquivos, reações (like/dislike) e comentários.
+- Agente `/roadmap-jira`: lê tickets do Jira e propõe cards de "Em desenvolvimento
+  agora" para aprovação antes de publicar.
+
+**Navegação / UI**
+- Sidebar com launcher de produtos do workspace e dados dinâmicos do usuário
+  (iniciais, empresa, papel admin); menu lateral recolhível; ícone próprio do portal.
+- Health check público `GET /health`.
+
+### Infra / CI-CD
+- Containerização (Dockerfile multi-stage, produção em Nitro standalone) com
+  healthcheck; rede `platform_shared`. Ajustes de `docker-compose` para uso no Platform.
+- Pipeline de imagem no ECR (us-east-1): **staging** manual (`workflow_dispatch`) e
+  **produção** na publicação de GitHub Release. Cada build publica a tag de ambiente
+  + uma tag imutável (`git-<sha>` em staging, `v<version>` em produção).
+- Lint (ESLint) + typecheck (vue-tsc) como **gate obrigatório** do CI (Node 24).
+- Deploy no host **manual**, documentado no runbook compartilhado
+  `deploy/runbooks/deploy-partners.md` (portal + BFF).
+- ECR endurecido: guardrail de não-deleção (repository policy) + lifecycle policy
+  (mantém 50 `v*` / 30 `git-*`; expira órfãs em 15 dias).
+
+### Notas
+- Referências do backend padronizadas de `bff-portal` para `partner-portal-bff`
+  (fallout do rename do repo/ECR do BFF).
+- Ainda **não** expostos pelo BFF (ficam atrás de flag, ocultos): escrita de usuários
+  da subconta e os cards de API key/observabilidade no detalhe da subconta.
