@@ -5,6 +5,7 @@
  */
 
 import { buildUsuarios, type Subconta } from './contas'
+import { fmtCallDateTime } from '../utils/callTime'
 
 export type HangupCause = 'atendida' | 'sem_resposta' | 'ocupado' | 'falha' | 'cancelada'
 
@@ -56,12 +57,9 @@ export function fmtDuration(sec: number): string {
   return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`
 }
 
-/** Data da ligação (ISO) → pt-BR com hora. */
+/** Data da ligação (ISO) → pt-BR com hora (já com o +3h da API — ver callTime). */
 export function fmtCallDate(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Sao_Paulo'
-  })
+  return fmtCallDateTime(iso)
 }
 
 /** Gera o histórico de chamadas de uma subconta de forma determinística (subId + usuário + índice). */

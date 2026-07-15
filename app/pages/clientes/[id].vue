@@ -28,7 +28,7 @@ const ENABLE_ESCRITA_USUARIOS = false
 /* ----- contrato do BFF ----- */
 interface BffSubaccount { id: string, name: string, users: number, minutes: number, status: 'active' | 'inactive' }
 interface BffSubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
-interface Summary { subaccounts: number, usersTotal: number, active7d: number, inactive: number, volumeMinutes: number, answerRate: number, callsInPeriod: number }
+interface Summary { subaccounts: number, usersTotal: number, active7d: number, inactive: number, volumeMinutes: number, answerRate: number, callsInPeriod: number, avgHandlingTimeSeconds: number }
 
 const toast = useToast()
 const route = useRoute()
@@ -66,7 +66,7 @@ const totalCalls = computed(() => (summary.value ? fmt(summary.value.callsInPeri
 const tma = computed(() => {
   const s = summary.value
   if (!s || !s.callsInPeriod) return '—'
-  const secs = Math.round((s.volumeMinutes * 60) / s.callsInPeriod)
+  const secs = s.avgHandlingTimeSeconds // vem pronto do BFF (segundos, sobre as atendidas)
   return `${Math.floor(secs / 60)}m ${secs % 60}s`
 })
 
