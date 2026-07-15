@@ -28,7 +28,7 @@ const ENABLE_ESCRITA_USUARIOS = false
 /* ----- contrato do BFF ----- */
 interface BffSubaccount { id: string, name: string, users: number, minutes: number, status: 'active' | 'inactive' }
 interface BffSubUser { id: string, name: string, email: string, role: string, active: boolean, lastCall: string | null }
-interface Summary { subaccounts: number, usersTotal: number, active7d: number, inactive: number, volumeMinutes: number, answerRate: number, callsInPeriod: number }
+interface Summary { subaccounts: number, usersTotal: number, active7d: number, inactive: number, volumeMinutes: number, answerRate: number, callsInPeriod: number, avgHandlingTimeSeconds: number }
 
 const toast = useToast()
 const route = useRoute()
@@ -66,18 +66,20 @@ const totalCalls = computed(() => (summary.value ? fmt(summary.value.callsInPeri
 const tma = computed(() => {
   const s = summary.value
   if (!s || !s.callsInPeriod) return '—'
-  const secs = Math.round((s.volumeMinutes * 60) / s.callsInPeriod)
+  const secs = s.avgHandlingTimeSeconds // vem pronto do BFF (segundos, sobre as atendidas)
   return `${Math.floor(secs / 60)}m ${secs % 60}s`
 })
 
 async function loadDetail() {
   loading.value = true
   try {
-    const from = new Date(Date.now() - 30 * DAY).toISOString()
+    // Sem `from`/`to`: o BFF usa a janela de 30d ancorada na meia-noite (default
+    // last30DaysIso). Mandar `from` com a hora do clique fazia a janela "andar" e o
+    // total/TMA mudarem a cada load — desalinhando do dashboard do api4com.
     const [subs, usersResp, sum] = await Promise.all([
       bffFetch<BffSubaccount[]>('/subaccounts'),
       bffFetch<{ data: BffSubUser[] }>(`/subaccounts/${id}/users`).catch(() => ({ data: [] as BffSubUser[] })),
-      bffFetch<Summary>('/reports/summary', { query: { subaccountId: id, from } }).catch(() => null)
+      bffFetch<Summary>('/reports/summary', { query: { subaccountId: id } }).catch(() => null)
     ])
     subconta.value = subs.find(s => s.id === id) ?? null
     usuarios.value = (usersResp.data ?? []).map(mapUser)
@@ -115,6 +117,20 @@ const customRangeInvalid = computed(() =>
   && customStart.value > customEnd.value
 )
 
+// "Personalizado" ainda sem as duas datas: nada a filtrar — aguarda o usuário,
+// igual ao "Personalizado" do Relatório (não some/aparece nada até o intervalo valer).
+const customRangePending = computed(() =>
+  dateFilter.value === 'custom' && (!customStart.value || !customEnd.value)
+)
+
+// Mensagem do empty-state (mesma lógica do Relatório): em "Personalizado" pendente/
+// inválido, orienta o usuário em vez de só dizer "nenhum resultado".
+const emptyStateMessage = computed(() => {
+  if (customRangePending.value) return 'Escolha a data inicial e a data final para filtrar por última ligação.'
+  if (customRangeInvalid.value) return 'Corrija o intervalo: a data inicial deve ser anterior à data final.'
+  return usuarios.value.length === 0 ? 'Nenhum usuário nesta subconta.' : 'Nenhum usuário corresponde aos filtros aplicados.'
+})
+
 type RoleFilter = 'all' | UsuarioRole
 type StatusFilter = 'all' | 'active' | 'inactive'
 type DateFilter = 'all' | 'today' | '7d' | '30d' | 'month' | 'never' | 'custom'
@@ -145,7 +161,9 @@ function withinLastCall(iso: string): boolean {
   if (!iso) return false // nunca ligou: fora de qualquer filtro de período
   const t = new Date(iso).getTime()
   if (dateFilter.value === 'custom') {
-    if (customRangeInvalid.value) return false
+    // Sem as duas datas (pendente) ou intervalo invertido: não aplica o filtro ainda.
+    // O aviso vai pro empty-state (emptyStateMessage), como no Relatório.
+    if (customRangePending.value || customRangeInvalid.value) return false
     if (customStart.value && t < new Date(`${customStart.value}T00:00:00`).getTime()) return false
     if (customEnd.value && t > new Date(`${customEnd.value}T23:59:59`).getTime()) return false
     return true
@@ -768,7 +786,7 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                       class="px-5 py-10 text-center"
                     >
                       <p class="text-[13px] text-dimmed">
-                        {{ usuarios.length === 0 ? 'Nenhum usuário nesta subconta.' : 'Nenhum usuário corresponde aos filtros aplicados.' }}
+                        {{ emptyStateMessage }}
                       </p>
                       <UButton
                         v-if="usuarios.length > 0 && hasActiveFilters"

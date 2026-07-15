@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { HORIZONS, type PartnerProfile } from '~/lib/roadmap'
+import { HORIZONS, type PartnerProfile, whatsappUrl } from '~/lib/roadmap'
 
 const {
   activeItem,
   activeItemId,
-  closeItem,
-  states,
-  react
+  closeItem
 } = useRoadmap()
+
+const isRadar = computed(() => activeItem.value?.horizon !== 'now')
+
+// Contato direto com o gerente de parcerias, já mencionando o item aberto.
+const escalateHref = computed(() =>
+  whatsappUrl(activeItem.value ? `Olá! Queria falar sobre a ideia "${activeItem.value.title}" do roadmap.` : undefined)
+)
 
 const tab = ref<PartnerProfile>('commercial')
 
@@ -23,10 +28,6 @@ const open = computed({
   }
 })
 
-const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
-const myReaction = computed(() => state.value?.myReaction ?? null)
-const likeCount = computed(() => state.value?.likeCount ?? 0)
-const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
 const horizon = computed(() => HORIZONS.find(h => h.id === activeItem.value?.horizon))
 
 // Força o download (Content-Disposition: attachment) em vez de abrir inline.
@@ -34,9 +35,15 @@ function downloadUrl(url: string) {
   return url + (url.includes('?') ? '&' : '?') + 'download'
 }
 
-function vote(reaction: 'like' | 'dislike') {
-  if (activeItem.value) react(activeItem.value.id, reaction)
-}
+// [DESATIVADO — será recolocado] Reações (gostei/não gostei).
+// Ao restaurar, adicione `states, react` ao destructure do useRoadmap e reative:
+// const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
+// const myReaction = computed(() => state.value?.myReaction ?? null)
+// const likeCount = computed(() => state.value?.likeCount ?? 0)
+// const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
+// function vote(reaction: 'like' | 'dislike') {
+//   if (activeItem.value) react(activeItem.value.id, reaction)
+// }
 </script>
 
 <template>
@@ -50,19 +57,26 @@ function vote(reaction: 'like' | 'dislike') {
         v-if="activeItem"
         class="space-y-5"
       >
-        <!-- Horizonte + abas -->
+        <!-- Horizonte -->
         <div class="flex flex-wrap items-center gap-2">
           <span
             v-if="horizon"
             class="rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset"
             :class="horizon.id === 'now'
-              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-              : 'bg-amber-50 text-amber-700 ring-amber-200'"
+              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/20'
+              : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-violet-400/10 dark:text-violet-300 dark:ring-violet-400/20'"
           >
             {{ horizon.title }}
           </span>
+          <span
+            v-if="isRadar"
+            class="text-[11px] font-medium text-amber-600/90 dark:text-violet-400/80"
+          >
+            Em avaliação · ainda não é um compromisso de entrega
+          </span>
         </div>
 
+        <!-- [DESATIVADO — será recolocado] Seletor de abas Comercial/Técnico (aba Técnico removida):
         <div class="flex rounded-xl border border-default bg-muted p-1">
           <button
             type="button"
@@ -87,6 +101,7 @@ function vote(reaction: 'like' | 'dislike') {
             /> Técnico
           </button>
         </div>
+        -->
 
         <!-- Comercial -->
         <div
@@ -153,7 +168,7 @@ function vote(reaction: 'like' | 'dislike') {
           </section>
         </div>
 
-        <!-- Técnico -->
+        <!-- [DESATIVADO — será recolocado] Conteúdo da aba Técnico:
         <div
           v-else
           class="space-y-6"
@@ -208,14 +223,46 @@ function vote(reaction: 'like' | 'dislike') {
             </div>
           </section>
         </div>
+        -->
 
-        <!-- Comentários (sempre visível, independente da aba) -->
+        <!-- Escalonamento de prioridade (só radar): baixo destaque, contextual -->
+        <div
+          v-if="isRadar"
+          class="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-4 dark:border-violet-400/25 dark:bg-violet-400/5"
+        >
+          <p class="text-sm font-medium text-amber-900 dark:text-violet-200">
+            Você ou seus clientes precisam muito disso?
+          </p>
+          <p class="mt-0.5 text-xs leading-relaxed text-amber-800/80 dark:text-violet-200/70">
+            Nos conte o contexto. Demanda real de clientes é o que mais pesa quando decidimos o que priorizar.
+          </p>
+          <a
+            :href="escalateHref"
+            target="_blank"
+            rel="noopener"
+            class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline dark:text-violet-300 dark:hover:text-violet-200"
+          >
+            <UIcon
+              name="i-lucide-message-circle"
+              class="h-3.5 w-3.5"
+            />
+            Fale com a gente sobre esta ideia
+            <UIcon
+              name="i-lucide-arrow-right"
+              class="h-3.5 w-3.5"
+            />
+          </a>
+        </div>
+
+        <!-- [DESATIVADO — será recolocado] Comentários (sempre visível, independente da aba):
         <div class="border-t border-default pt-5">
           <RoadmapComments :item-id="activeItem.id" />
         </div>
+        -->
       </div>
     </template>
 
+    <!-- [DESATIVADO — será recolocado] Rodapé com Gostei / Não gostei:
     <template #footer>
       <div
         v-if="activeItem"
@@ -245,5 +292,6 @@ function vote(reaction: 'like' | 'dislike') {
         </UButton>
       </div>
     </template>
+    -->
   </USlideover>
 </template>

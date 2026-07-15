@@ -8,6 +8,13 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // Tema controlado manualmente pelo usuário (botão na sidebar), não pelo SO.
+  // Default claro; a escolha fica guardada e passa a valer nos próximos acessos.
+  colorMode: {
+    preference: 'light',
+    fallback: 'light'
+  },
+
   runtimeConfig: {
     // Base do BFF para chamadas do SERVIDOR (SSR). Só existe no server.
     // Em docker, o browser alcança o BFF por `localhost:3005` (porta publicada no

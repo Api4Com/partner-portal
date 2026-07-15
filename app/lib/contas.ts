@@ -4,6 +4,8 @@
  * Principal apenas provisiona e acompanha (read-only). Tudo estático.
  */
 
+import { fmtCallDateTime } from '../utils/callTime'
+
 export type SubcontaStatus = 'ativo' | 'bloqueado' | 'inativo'
 export type SubcontaCharge = 'prepaid' | 'plan' | 'pending'
 
@@ -95,9 +97,7 @@ export const ROLE_BADGE: Record<UsuarioRole, { label: string, color: BadgeColor 
 /** Formata a última ligação (ISO) para pt-BR; vazio → "Nunca ligou". */
 export function fmtLastCall(iso: string): string {
   if (!iso) return 'Nunca ligou'
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  })
+  return fmtCallDateTime(iso) // mesma formatação (UTC) da tela de Relatórios
 }
 
 const NOMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elaine', 'Felipe', 'Gabriela', 'Hugo', 'Isabela', 'João', 'Karina', 'Lucas', 'Marina', 'Nelson', 'Olívia', 'Paulo', 'Renata', 'Sérgio', 'Tatiana', 'Vitor']

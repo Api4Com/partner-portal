@@ -108,29 +108,49 @@ const customRangePending = computed(() =>
  */
 const filtersReady = computed(() => !customRangePending.value && !customRangeInvalid.value)
 
-/** Período selecionado → { from, to } ISO para a query do BFF. */
+/**
+ * Período selecionado → { from, to } ISO para a query do BFF.
+ * Todos os presets são ancorados em fronteira de dia (meia-noite), igual ao
+ * dashboard do api4com — senão a janela "anda" com a hora do clique e o total
+ * muda a cada load. `to` é o INÍCIO do dia seguinte, não `23:59:59`: o pbx usa
+ * `started_at < to` (fronteira aberta à direita), então `amanhã 00:00` inclui o
+ * dia inteiro sem perder o último segundo nem contar em dobro na virada.
+ */
+const startOfDay = (d: Date) => {
+  const x = new Date(d)
+  x.setHours(0, 0, 0, 0)
+  return x
+}
+const startOfTomorrow = () => {
+  const x = startOfDay(new Date())
+  x.setDate(x.getDate() + 1)
+  return x
+}
 const range = computed<{ from?: string, to?: string }>(() => {
   const now = new Date()
   const iso = (d: Date) => d.toISOString()
+  const to = iso(startOfTomorrow())
   switch (periodo.value) {
     case 'all':
       return {}
-    case 'today': {
-      const s = new Date(now)
-      s.setHours(0, 0, 0, 0)
-      return { from: iso(s), to: iso(now) }
-    }
+    case 'today':
+      return { from: iso(startOfDay(now)), to }
     case '7d':
-      return { from: iso(new Date(now.getTime() - 7 * DAY)), to: iso(now) }
+      return { from: iso(new Date(startOfDay(now).getTime() - 7 * DAY)), to }
     case '30d':
-      return { from: iso(new Date(now.getTime() - 30 * DAY)), to: iso(now) }
+      return { from: iso(new Date(startOfDay(now).getTime() - 30 * DAY)), to }
     case 'month':
-      return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to: iso(now) }
+      return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to }
     case 'custom': {
       if (customRangeInvalid.value) return {}
       const r: { from?: string, to?: string } = {}
       if (customStart.value) r.from = new Date(`${customStart.value}T00:00:00`).toISOString()
-      if (customEnd.value) r.to = new Date(`${customEnd.value}T23:59:59`).toISOString()
+      // `to` no início do dia seguinte ao "fim" escolhido (fronteira aberta à direita).
+      if (customEnd.value) {
+        const end = new Date(`${customEnd.value}T00:00:00`)
+        end.setDate(end.getDate() + 1)
+        r.to = end.toISOString()
+      }
       return r
     }
   }

@@ -241,6 +241,7 @@ async function logout() {
           {{ isAdmin ? 'Admin' : 'Parceiro' }}
         </div>
       </div>
+      <PortalThemeToggle :tooltip="collapsed" />
       <UTooltip
         text="Sair"
         :content="{ side: 'right' }"

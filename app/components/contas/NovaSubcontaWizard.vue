@@ -80,6 +80,31 @@ watch(phone, (v) => {
   if (f !== v) phone.value = f
 })
 
+/* ----- documento: máscara CPF 000.000.000-00 ou CNPJ 00.000.000/0000-00.
+   CNPJ novo (2026) é alfanumérico nos 12 primeiros + 2 dígitos. Enquanto forem
+   ≤11 caracteres só-dígitos assume CPF; letra ou 12º caractere → CNPJ. ----- */
+function formatDocument(v: string): string {
+  const c = v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 14)
+  if (!c) return ''
+  if (c.length <= 11 && /^\d*$/.test(c)) {
+    let out = c.slice(0, 3)
+    if (c.length > 3) out += `.${c.slice(3, 6)}`
+    if (c.length > 6) out += `.${c.slice(6, 9)}`
+    if (c.length > 9) out += `-${c.slice(9, 11)}`
+    return out
+  }
+  let out = c.slice(0, 2)
+  if (c.length > 2) out += `.${c.slice(2, 5)}`
+  if (c.length > 5) out += `.${c.slice(5, 8)}`
+  if (c.length > 8) out += `/${c.slice(8, 12)}`
+  if (c.length > 12) out += `-${c.slice(12, 14)}`
+  return out
+}
+watch(identification, (v) => {
+  const f = formatDocument(v)
+  if (f !== v) identification.value = f
+})
+
 watch(open, (v) => {
   if (v) {
     stepIdx.value = 0
@@ -236,6 +261,7 @@ function next() {
                 size="lg"
                 class="w-full"
                 autocomplete="off"
+                :maxlength="128"
                 autofocus
               />
             </UFormField>
@@ -246,7 +272,9 @@ function next() {
             >
               <UInput
                 v-model="identification"
-                placeholder="CPF ou CNPJ (opcional)"
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                inputmode="text"
+                :maxlength="18"
                 size="lg"
                 class="w-full"
                 autocomplete="off"

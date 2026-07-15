@@ -3,20 +3,34 @@ import type { RoadmapItem } from '~/lib/roadmap'
 
 const props = defineProps<{ item: RoadmapItem }>()
 
-const { states, myComments, openItem, react } = useRoadmap()
+const { openItem } = useRoadmap()
 
-const state = computed(() => states.value[props.item.id])
-const likeCount = computed(() => state.value?.likeCount ?? 0)
-const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
-const myReaction = computed(() => state.value?.myReaction ?? null)
-const myCommentCount = computed(() => myComments.value[props.item.id]?.length ?? 0)
+// [DESATIVADO — será recolocado] Reações (gostei/não gostei) e contador de comentários.
+// Ao restaurar: troque a linha do useRoadmap por
+//   const { states, myComments, openItem, react } = useRoadmap()
+// e reative:
+// const state = computed(() => states.value[props.item.id])
+// const likeCount = computed(() => state.value?.likeCount ?? 0)
+// const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
+// const myReaction = computed(() => state.value?.myReaction ?? null)
+// const myCommentCount = computed(() => myComments.value[props.item.id]?.length ?? 0)
+
+// Itens do radar ganham cara de "rascunho" (borda tracejada, tom lavado):
+// comunica visualmente que é possibilidade, não compromisso.
+const isRadar = computed(() => props.item.horizon !== 'now')
+const shellClass = computed(() =>
+  isRadar.value
+    ? 'border-dashed border-amber-200 bg-amber-50/30 shadow-none hover:border-amber-400 dark:border-violet-400/20 dark:bg-violet-400/5 dark:hover:border-violet-400/50'
+    : 'border-default bg-default shadow-sm hover:border-brand-300 hover:shadow-lg'
+)
 </script>
 
 <template>
   <div
     role="button"
     tabindex="0"
-    class="group w-full cursor-pointer rounded-2xl border border-default bg-default p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+    class="group w-full cursor-pointer rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+    :class="shellClass"
     @click="openItem(item.id)"
     @keydown.enter.prevent="openItem(item.id)"
     @keydown.space.prevent="openItem(item.id)"
@@ -35,8 +49,8 @@ const myCommentCount = computed(() => myComments.value[props.item.id]?.length ??
       {{ item.commercial.headline }}
     </p>
 
-    <div class="mt-3 flex items-center justify-between border-t border-default pt-3">
-      <!-- Reagir sem abrir o item -->
+    <div class="mt-3 flex items-center justify-end border-t border-default pt-3">
+      <!-- [DESATIVADO — será recolocado] Reagir sem abrir o item + contador de comentários:
       <div class="flex items-center gap-1.5">
         <button
           type="button"
@@ -82,6 +96,7 @@ const myCommentCount = computed(() => myComments.value[props.item.id]?.length ??
           {{ myCommentCount }}
         </span>
       </div>
+      -->
 
       <span class="inline-flex items-center gap-1 text-xs font-medium text-primary">
         Ver detalhes <UIcon
