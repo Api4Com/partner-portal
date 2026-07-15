@@ -73,11 +73,13 @@ const tma = computed(() => {
 async function loadDetail() {
   loading.value = true
   try {
-    const from = new Date(Date.now() - 30 * DAY).toISOString()
+    // Sem `from`/`to`: o BFF usa a janela de 30d ancorada na meia-noite (default
+    // last30DaysIso). Mandar `from` com a hora do clique fazia a janela "andar" e o
+    // total/TMA mudarem a cada load — desalinhando do dashboard do api4com.
     const [subs, usersResp, sum] = await Promise.all([
       bffFetch<BffSubaccount[]>('/subaccounts'),
       bffFetch<{ data: BffSubUser[] }>(`/subaccounts/${id}/users`).catch(() => ({ data: [] as BffSubUser[] })),
-      bffFetch<Summary>('/reports/summary', { query: { subaccountId: id, from } }).catch(() => null)
+      bffFetch<Summary>('/reports/summary', { query: { subaccountId: id } }).catch(() => null)
     ])
     subconta.value = subs.find(s => s.id === id) ?? null
     usuarios.value = (usersResp.data ?? []).map(mapUser)
