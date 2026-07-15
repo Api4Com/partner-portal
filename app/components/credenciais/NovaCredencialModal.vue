@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ESCOPOS, type CredencialEmitida, type Escopo } from '~/lib/credenciais'
+import type { CredencialEmitida, Escopo } from '~/lib/credenciais'
 
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ created: [c: CredencialEmitida] }>()
@@ -8,6 +8,10 @@ const { issue, mensagemDoErro } = useCredenciais()
 const toast = useToast()
 
 const name = ref('')
+// Por enquanto só "Criar subcontas" (CREATE_CHILD_ACCOUNT) está em uso; o seletor de
+// permissões está oculto e o escopo fica chumbado. Para reabrir a escolha, restaurar o
+// bloco "Permissões" no template (ver ESCOPOS/toggleScope no histórico) e voltar `scopes`
+// a um ref editável.
 const scopes = ref<Escopo[]>(['CREATE_CHILD_ACCOUNT'])
 const submitting = ref(false)
 const erro = ref<string | null>(null)
@@ -17,12 +21,6 @@ const erro = ref<string | null>(null)
 const emitida = ref<CredencialEmitida | null>(null)
 
 const nameOk = computed(() => name.value.trim().length > 0)
-
-function toggleScope(value: Escopo, checked: boolean) {
-  scopes.value = checked
-    ? [...scopes.value, value]
-    : scopes.value.filter(s => s !== value)
-}
 
 watch(open, (v) => {
   if (!v) return
@@ -194,33 +192,6 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
               @keyup.enter="submit"
             />
           </UFormField>
-
-          <UFormField
-            label="Permissões"
-            description="A chave só pode o que estiver marcado. Não dá para editar depois — para mudar o escopo, emita outra e revogue esta."
-          >
-            <div class="mt-1 flex flex-col gap-3 rounded-xl border border-default p-4">
-              <UCheckbox
-                v-for="escopo in ESCOPOS"
-                :key="escopo.value"
-                :model-value="scopes.includes(escopo.value)"
-                :label="escopo.label"
-                :description="escopo.description"
-                @update:model-value="(v: boolean | 'indeterminate') => toggleScope(escopo.value, v === true)"
-              />
-            </div>
-          </UFormField>
-
-          <p
-            v-if="!scopes.length"
-            class="flex items-start gap-2 text-xs leading-relaxed text-muted"
-          >
-            <UIcon
-              name="i-lucide-info"
-              class="mt-0.5 h-3.5 w-3.5 shrink-0"
-            />
-            Sem nenhuma permissão marcada, a chave recebe tudo o que a sua parceria concede.
-          </p>
 
           <p
             v-if="erro"
