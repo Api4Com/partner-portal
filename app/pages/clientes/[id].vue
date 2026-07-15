@@ -115,6 +115,20 @@ const customRangeInvalid = computed(() =>
   && customStart.value > customEnd.value
 )
 
+// "Personalizado" ainda sem as duas datas: nada a filtrar — aguarda o usuário,
+// igual ao "Personalizado" do Relatório (não some/aparece nada até o intervalo valer).
+const customRangePending = computed(() =>
+  dateFilter.value === 'custom' && (!customStart.value || !customEnd.value)
+)
+
+// Mensagem do empty-state (mesma lógica do Relatório): em "Personalizado" pendente/
+// inválido, orienta o usuário em vez de só dizer "nenhum resultado".
+const emptyStateMessage = computed(() => {
+  if (customRangePending.value) return 'Escolha a data inicial e a data final para filtrar por última ligação.'
+  if (customRangeInvalid.value) return 'Corrija o intervalo: a data inicial deve ser anterior à data final.'
+  return usuarios.value.length === 0 ? 'Nenhum usuário nesta subconta.' : 'Nenhum usuário corresponde aos filtros aplicados.'
+})
+
 type RoleFilter = 'all' | UsuarioRole
 type StatusFilter = 'all' | 'active' | 'inactive'
 type DateFilter = 'all' | 'today' | '7d' | '30d' | 'month' | 'never' | 'custom'
@@ -145,7 +159,9 @@ function withinLastCall(iso: string): boolean {
   if (!iso) return false // nunca ligou: fora de qualquer filtro de período
   const t = new Date(iso).getTime()
   if (dateFilter.value === 'custom') {
-    if (customRangeInvalid.value) return false
+    // Sem as duas datas (pendente) ou intervalo invertido: não aplica o filtro ainda.
+    // O aviso vai pro empty-state (emptyStateMessage), como no Relatório.
+    if (customRangePending.value || customRangeInvalid.value) return false
     if (customStart.value && t < new Date(`${customStart.value}T00:00:00`).getTime()) return false
     if (customEnd.value && t > new Date(`${customEnd.value}T23:59:59`).getTime()) return false
     return true
@@ -768,7 +784,7 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
                       class="px-5 py-10 text-center"
                     >
                       <p class="text-[13px] text-dimmed">
-                        {{ usuarios.length === 0 ? 'Nenhum usuário nesta subconta.' : 'Nenhum usuário corresponde aos filtros aplicados.' }}
+                        {{ emptyStateMessage }}
                       </p>
                       <UButton
                         v-if="usuarios.length > 0 && hasActiveFilters"
