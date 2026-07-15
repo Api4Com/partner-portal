@@ -1,217 +1,92 @@
-// Login/signup passam pelo partner-portal-bff → pbxapi; pós-login o portal fala direto
-// com o Core. O usuário atual vem das claims do access JWT (não há /users/me).
-export interface AccountContext {
-  currentCustomerId?: string
-  parentCustomerId?: string | null
-  accountType?: 'parent' | 'child' | 'standalone'
-  allowedCustomerIds?: string[]
-}
-
+// Login/logout passam pelo bff-portal → pbxapi. O access token é um token OPACO
+// de sessão do pbx (não é JWT: não tem claims, não dá para decodificar e não há
+// refresh). O usuário atual vem de GET /users/me; o escopo das subcontas é
+// derivado no BFF a cada request.
 export interface PbxUser {
   uuid: string
   name?: string
   email: string
+  phone?: string
   role?: string
+  status?: string
   organizationId?: string
-  accountContext?: AccountContext
 }
 
-export interface SignupPayload {
-  name: string
-  organizationName: string
-  email: string
-  password: string
-  phone: string
-}
-
-// O refresh token não é mais manipulado pelo JS: o BFF o guarda num cookie
-// httpOnly (setado no login) e o lê em POST /auth/refresh. O front só recebe/usa
-// o access token. Por isso o login/refresh retornam apenas `{ accessToken }`.
-interface AccessTokenResponse {
+// POST /users/login → sessão opaca do pbx (403 = conta não é parceira).
+interface LoginResponse {
   accessToken: string
+  ttl?: number
+  created?: string
 }
-
-interface AccessClaims {
-  sub?: string
-  email?: string
-  name?: string
-  role?: string
-  organizationId?: string
-  accountContext?: AccountContext
-  exp?: number
-}
-
-function decodeJwt(token: string): AccessClaims | null {
-  try {
-    const part = token.split('.')[1]
-    if (!part) return null
-    const b64 = part.replace(/-/g, '+').replace(/_/g, '/')
-    const json = decodeURIComponent(
-      Array.prototype.map
-        .call(atob(b64), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-    return JSON.parse(json)
-  } catch {
-    return null
-  }
-}
-
-function isExpired(token: string): boolean {
-  const claims = decodeJwt(token)
-  if (!claims || typeof claims.exp !== 'number') return true
-  const clockSkewMs = 5000
-  return Date.now() >= claims.exp * 1000 - clockSkewMs
-}
-
-// Status HTTP de um erro do ofetch (FetchError expõe em `.response.status`/`.status`).
-function errStatus(err: unknown): number | undefined {
-  return (err as { response?: { status?: number } })?.response?.status
-    ?? (err as { status?: number })?.status
-}
-
-// Renovação em vôo compartilhada: fetches paralelos que caem em 401 reusam o mesmo
-// POST /auth/refresh em vez de dispararem vários (com rotação de cookie, múltiplos
-// refreshes concorrentes matam a sessão no meio do load). Escopo de módulo → só no
-// client (o refresh é pulado no SSR).
-let refreshInflight: Promise<boolean> | null = null
 
 export function useAuth() {
   const cookieOpts = {
     sameSite: 'lax' as const,
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
-    // Em produção o JWT só trafega por HTTPS; em dev (http://localhost) `secure`
+    // Em produção o token só trafega por HTTPS; em dev (http://localhost) `secure`
     // impediria o cookie de ser gravado.
     secure: !import.meta.dev
   }
   const accessToken = useCookie<string | null>('access_token', cookieOpts)
   const user = useState<PbxUser | null>('auth-user', () => null)
 
-  const { executeRecaptcha } = useRecaptcha()
-
-  const config = useRuntimeConfig().public
-  const bffBase = config.bffBase
-  const coreBase = config.coreBase
-
-  function setAccessToken(token: string) {
-    accessToken.value = token
-  }
+  // No SSR o BFF é alcançado pelo hostname da rede interna; no browser, pela URL
+  // pública. Usar a pública no servidor dá ECONNREFUSED dentro do docker.
+  const config = useRuntimeConfig()
+  const bffBase = import.meta.server && config.bffInternalBase
+    ? config.bffInternalBase
+    : config.public.bffBase
 
   function clearSession() {
     accessToken.value = null
     user.value = null
   }
 
-  function hydrateFromToken() {
-    const claims = accessToken.value ? decodeJwt(accessToken.value) : null
-    if (!claims || !claims.sub || !claims.email) {
-      user.value = null
-      return
-    }
-    user.value = {
-      uuid: claims.sub,
-      email: claims.email,
-      name: claims.name,
-      role: claims.role,
-      organizationId: claims.organizationId,
-      accountContext: claims.accountContext
-    }
+  // Só 401/403 significam "a sessão/conta não vale mais". Erro de rede, timeout ou
+  // 5xx do BFF são falhas TRANSITÓRIAS: derrubar a sessão nesses casos desloga o
+  // usuário por um soluço de infra (era o que acontecia no refresh, via SSR).
+  function isAuthFailure(err: unknown): boolean {
+    const e = err as { response?: { status?: number }, statusCode?: number }
+    const status = e?.response?.status ?? e?.statusCode
+    return status === 401 || status === 403
   }
 
   async function login(email: string, password: string) {
-    // `credentials: 'include'` para que o Set-Cookie httpOnly do refresh (emitido
-    // pelo BFF) seja armazenado pelo browser. O front só lê/guarda o access.
-    const { accessToken: token } = await $fetch<AccessTokenResponse>('/users/login', {
+    const { accessToken: token } = await $fetch<LoginResponse>('/users/login', {
       baseURL: bffBase,
       method: 'POST',
-      credentials: 'include',
       body: { email, password }
     })
-    setAccessToken(token)
-    hydrateFromToken()
+    accessToken.value = token
+    await fetchUser()
   }
 
-  // pbxapi não auto-loga no cadastro: exige verificação de e-mail antes do login.
-  async function signup(payload: SignupPayload) {
-    // reCAPTCHA v3: o BFF em `enforce` rejeita o cadastro sem token (RECAPTCHA_MISSING).
-    // Em `observe`/sem chave, executeRecaptcha resolve null e o cadastro segue.
-    const recaptchaToken = await executeRecaptcha('signup')
-    return $fetch<{ status: number, message: string }>('/accounts/signup', {
-      baseURL: bffBase,
-      method: 'POST',
-      body: {
-        name: payload.name,
-        organization_name: payload.organizationName,
-        email: payload.email,
-        password: payload.password,
-        phone: payload.phone,
-        recaptchaToken
-      }
-    })
-  }
-
-  async function refresh(): Promise<boolean> {
-    // No SSR o $fetch server-side não encaminha o cookie httpOnly do refresh, então
-    // qualquer tentativa daria 401 e derrubaria uma sessão válida. Pula no servidor
-    // (retorna false SEM limpar) e deixa o client renovar de verdade.
-    if (import.meta.server) return false
-    // Memoiza a renovação em vôo: chamadas concorrentes reusam a mesma promise.
-    if (refreshInflight) return refreshInflight
-
-    refreshInflight = (async () => {
-      // O refresh token vive num cookie httpOnly gerenciado pelo BFF; o JS não o
-      // acessa. `credentials: 'include'` faz o browser enviá-lo automaticamente.
-      // A renovação passa pelo BFF (não mais direto no Core) e devolve só o access.
-      try {
-        const { accessToken: token } = await $fetch<AccessTokenResponse>('/auth/refresh', {
-          baseURL: bffBase,
-          method: 'POST',
-          credentials: 'include'
-        })
-        setAccessToken(token)
-        hydrateFromToken()
-        return true
-      } catch (err) {
-        // Só derruba a sessão quando o refresh é de fato recusado (401/403 = token
-        // inválido/expirado). Rede, 5xx, CORS e timeout NÃO limpam — o access token
-        // atual segue valendo e uma nova tentativa pode funcionar.
-        const status = errStatus(err)
-        if (status === 401 || status === 403) clearSession()
-        return false
-      }
-    })()
-
-    try {
-      return await refreshInflight
-    } finally {
-      refreshInflight = null
-    }
-  }
-
+  // Única fonte do usuário logado: GET /users/me com o Bearer da sessão.
   async function fetchUser(): Promise<PbxUser | null> {
     if (!accessToken.value) {
       user.value = null
       return null
     }
-    if (isExpired(accessToken.value)) {
-      const ok = await refresh()
-      if (!ok) return null
-    } else {
-      hydrateFromToken()
+    try {
+      user.value = await $fetch<PbxUser>('/users/me', {
+        baseURL: bffBase,
+        headers: { Authorization: `Bearer ${accessToken.value}` }
+      })
+    } catch (err) {
+      // Token inválido/expirado ou conta sem acesso: sem refresh, a sessão cai.
+      // Falha transitória (rede/5xx): PRESERVA o token — a próxima navegação tenta
+      // de novo. Limpar aqui deslogaria por um blip do BFF.
+      if (isAuthFailure(err)) clearSession()
     }
     return user.value
   }
 
   async function logout() {
-    // Pede ao BFF para expirar o cookie httpOnly do refresh (best-effort);
-    // `credentials: 'include'` envia o cookie para que o BFF possa limpá-lo.
-    // Revogação real é por tokenVersion no Core; aqui garantimos a sessão local.
     try {
       await $fetch('/users/logout', {
         baseURL: bffBase,
         method: 'POST',
-        credentials: 'include',
         headers: accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {}
       })
     } catch {
@@ -220,39 +95,50 @@ export function useAuth() {
     clearSession()
   }
 
-  // Em 401 tenta refresh uma vez antes de propagar o erro.
-  async function authedFetch<T>(base: string, path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    if (accessToken.value && isExpired(accessToken.value)) await refresh()
-    // $fetch<T> devolve TypedInternalResponse<…, T>, que o TS não reduz a T num
-    // contexto genérico — cast explícito para o tipo pedido pelo chamador.
-    const run = () => $fetch<T>(path, {
-      baseURL: base,
-      ...opts,
-      headers: {
-        ...(opts.headers as Record<string, string> | undefined),
-        ...(accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {})
-      }
-    }) as Promise<T>
+  // Nem todo 403 é fatal para a sessão, e a distinção importa:
+  //
+  // - 403 do PartnerGuard ("Acesso restrito a contas parceiras"): a CONTA não é (ou
+  //   deixou de ser) parceira — ex.: parceiro desativado enquanto logado. Toda rota
+  //   passa a responder isso; manter o usuário "logado" só renderiza telas quebradas.
+  //   → derruba a sessão.
+  // - 403 de RECURSO (ex.: `GET /subaccounts/:id/users` nega PII de usuários ao papel
+  //   PARTNER, por design): a sessão está VÁLIDA, só aquele dado é proibido. Derrubar
+  //   a sessão aqui deslogaria o parceiro ao abrir o detalhe da subconta.
+  //   → repassa o erro; quem chamou já sabe tolerar (lista vazia).
+  const PARTNER_GUARD_403 = 'Acesso restrito a contas parceiras'
+
+  // Em 401 a sessão acabou (não há refresh): limpa e manda para o /login.
+  async function bffFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
     try {
-      return await run()
+      // O cast é necessário: `$fetch<T>` devolve `TypedInternalResponse<…, T>`, que o
+      // TS não consegue provar ser `T` quando `T` é um genérico do chamador (ele pode
+      // ser instanciado com qualquer coisa). Aqui as rotas são do BFF, não do Nitro —
+      // não há tipagem interna a inferir, então `T` é o contrato de fato.
+      return await $fetch<T>(path, {
+        baseURL: bffBase,
+        ...opts,
+        headers: {
+          ...(opts.headers as Record<string, string> | undefined),
+          ...(accessToken.value ? { Authorization: `Bearer ${accessToken.value}` } : {})
+        }
+      }) as T
     } catch (err) {
-      if ((err as { response?: { status?: number } })?.response?.status === 401 && await refresh()) {
-        return await run()
+      const e = err as {
+        response?: { status?: number }
+        statusCode?: number
+        data?: { message?: string }
+      }
+      const httpStatus = e?.response?.status ?? e?.statusCode
+      const isDeactivatedPartner
+        = httpStatus === 403 && e?.data?.message === PARTNER_GUARD_403
+
+      if (httpStatus === 401 || isDeactivatedPartner) {
+        clearSession()
+        await navigateTo('/login')
       }
       throw err
     }
   }
 
-  // Bearer JWT do Core direto no Core.
-  function coreFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    return authedFetch<T>(coreBase, path, opts)
-  }
-
-  // Bearer JWT do Core no BFF (subaccounts/calls/reports — escopo via accountContext).
-  // `credentials: 'include'` acompanha o cookie httpOnly de sessão quando o BFF precisar.
-  function bffFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
-    return authedFetch<T>(bffBase, path, { credentials: 'include', ...opts })
-  }
-
-  return { token: accessToken, user, login, signup, fetchUser, refresh, logout, coreFetch, bffFetch }
+  return { token: accessToken, user, login, fetchUser, logout, bffFetch }
 }

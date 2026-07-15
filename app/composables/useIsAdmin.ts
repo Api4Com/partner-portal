@@ -1,5 +1,20 @@
-// TODO: gating de admin vivia no Supabase. Sem fonte equivalente ainda, retorna
-// sempre false; reimplementar via role das claims do JWT (useAuth).
+/**
+ * Resolve se o usuário atual é admin via RPC `roadmap_is_admin`.
+ * Compartilhado (key 'is-admin') entre a sidebar e a página /admin.
+ */
 export function useIsAdmin() {
-  return useAsyncData('is-admin', async () => false)
+  const supabase = useSupabaseClient()
+  const user = useSupabaseUser()
+
+  return useAsyncData('is-admin', async () => {
+    if (!user.value || !supabase) return false
+    const { data } = await supabase.rpc('roadmap_is_admin')
+    return data === true
+  }, {
+    // Resolve no cliente (sessão garantida) e reavalia quando o usuário entra/sai —
+    // evita cachear `false` quando o SSR roda antes da sessão existir.
+    server: false,
+    default: () => false,
+    watch: [user]
+  })
 }

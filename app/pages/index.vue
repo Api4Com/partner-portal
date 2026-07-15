@@ -21,7 +21,7 @@ interface Summary {
 }
 
 const toast = useToast()
-const { user, bffFetch, refresh } = useAuth()
+const { user, bffFetch } = useAuth()
 const DAY = 86400000
 
 const search = ref('')
@@ -64,9 +64,10 @@ const totalMinutes = computed(() => subaccounts.value.reduce((sum, x) => sum + (
 const maxMin = computed(() => Math.max(...subaccounts.value.map(s => s.minutes), 1))
 
 const rows = computed(() => {
-  const q = search.value.trim().toLowerCase()
+  // Busca ignora acento e caixa nos dois sentidos ("te" acha "Tétheu" e vice-versa).
+  const q = normalizeSearch(search.value.trim())
   return subaccounts.value.filter(s =>
-    (!q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q))
+    (!q || matchesSearch(s.name, q) || matchesSearch(s.id, q))
     && (statusFilter.value === 'all' || s.status === statusFilter.value)
   )
 })
@@ -92,9 +93,8 @@ const kpis = computed(() => {
 
 async function onCreated(s: Subaccount) {
   toast.add({ title: 'Subconta criada', description: s.name, icon: 'i-lucide-circle-check', color: 'success' })
-  // A nova subconta só entra no escopo num token novo (allowedCustomerIds é
-  // recomputado): renova o JWT e recarrega a lista.
-  await refresh()
+  // O escopo das subcontas é derivado no BFF a cada request: basta recarregar
+  // a lista para a nova subconta aparecer.
   await load()
 }
 </script>
@@ -192,7 +192,17 @@ async function onCreated(s: Subaccount) {
                   Volumetria (30 dias)
                 </th>
                 <th class="px-3.5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-dimmed">
-                  Status
+                  <span class="inline-flex items-center gap-1">
+                    Status
+                    <UTooltip text="Ativo: teve chamadas nos últimos 7 dias.">
+                      <UIcon
+                        name="i-lucide-info"
+                        class="h-3.5 w-3.5 cursor-help text-dimmed"
+                        tabindex="0"
+                        aria-label="Ativo: teve chamadas nos últimos 7 dias."
+                      />
+                    </UTooltip>
+                  </span>
                 </th>
                 <th class="px-3.5 py-3 pr-[22px] text-right text-[11px] font-semibold uppercase tracking-wider text-dimmed">
                   Ações

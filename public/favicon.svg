@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="API4COM Portal de Parceiros">
+  <defs>
+    <clipPath id="lower-cross">
+      <rect x="26" y="36" width="12" height="12"/>
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0a2740"/>
+  <g fill="none" stroke-width="5.5">
+    <circle cx="39.5" cy="32" r="12.5" stroke="#ffffff"/>
+    <circle cx="24.5" cy="32" r="12.5" stroke="#36bbef"/>
+    <circle cx="39.5" cy="32" r="12.5" stroke="#ffffff" clip-path="url(#lower-cross)"/>
+  </g>
+</svg>
