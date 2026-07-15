@@ -5,6 +5,37 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.1.0] - 2026-07-15
+
+Refinamentos de UX sobre a 1.0.0: tema claro/escuro manual, ajustes no roadmap do
+parceiro e melhorias de datas/formatação nos relatórios e no cadastro de subconta.
+Sem mudanças incompatíveis.
+
+### Adicionado
+
+**Tema (claro/escuro)**
+- Toggle manual de tema (`PortalThemeToggle`) com persistência da preferência de
+  cor entre sessões; acessível pela sidebar.
+
+**Relatórios e detalhe da subconta**
+- Utilitário `callTime` para formatar a data/hora das chamadas com ajuste de fuso.
+- Tratamento de intervalo de datas personalizado mais robusto nos relatórios e no
+  filtro do detalhe da subconta, com mensagens de estado vazio mais claras.
+
+**Cadastro de subconta**
+- Formatação de documento (CPF/CNPJ) no `NovaSubcontaWizard`.
+
+### Alterado
+
+**Roadmap**
+- Interações ocultas (voto, comentário e formulário de solicitação) e aba "Técnico"
+  removida da visão do parceiro; contato agora é direto (WhatsApp).
+- Representação dos itens "No radar" revista e opções de contato direto.
+- Suporte a dark mode e consistência visual do roadmap aprimorados.
+
+**Credenciais**
+- `NovaCredencialModal` simplificado: removido o seletor de permissões não utilizado.
+
 ## [1.0.0] - 2026-07-11
 
 Primeira versão do produto **partner-portal** (UI Nuxt 4 do portal do parceiro) e
