@@ -1,21 +1,21 @@
-# Produção do partner-portal no host tools1.api4com.com (136.248.85.42).
+# Produção do partner-portal (SÓ o portal) no host tools1.api4com.com (136.248.85.42).
 #
 # Modelo NATIVO do tools1: Docker standalone + docker-compose, nginx no host
 # (TLS via cert wildcard *.api4com.com em /var/www/api4com/certs), rede bridge
-# externa `platform_shared`. NÃO é swarm/traefik (esse é o modelo do .100).
+# externa `platform_shared`. Um dir/compose por serviço (convenção do host).
 #
-# Os containers publicam SÓ em 127.0.0.1 (o nginx do host é quem expõe 443).
-# Envs reais (com segredos do BFF) ficam em .env.*.production ao lado deste arquivo,
-# NO HOST, fora do git. Ver os *.example versionados.
+# O BFF tem o SEU próprio set de deploy no repo partner-portal-bff
+# (deploy/production/): compose, vhost e env. Os dois sobem na mesma
+# platform_shared, então o portal alcança o BFF no SSR por `partner-portal-bff-prod:3000`.
+#
+# O container publica SÓ em 127.0.0.1 (o nginx do host expõe 443).
+# Env real fica em .env.production (a partir do .example), NO HOST, fora do git.
 #
 # Deploy (no tools1, em /var/www/html/partner-portal/):
 #   aws ecr get-login-password --region us-east-1 \
 #     | docker login --username AWS --password-stdin 824572654562.dkr.ecr.us-east-1.amazonaws.com
 #   docker compose -f docker-compose.production.yml pull
 #   docker compose -f docker-compose.production.yml up -d
-#
-# BFF hoje com 1 réplica (escala pra 2 depois: 2º container em 127.0.0.1:3021
-# + `upstream` no vhost partners-bff).
 
 services:
   partner-portal:
@@ -25,7 +25,7 @@ services:
     ports:
       - '127.0.0.1:3020:3000'
     networks: [shared]
-    env_file: .env.portal.production
+    env_file: .env.production
     environment:
       - NODE_ENV=production
     healthcheck:
@@ -34,17 +34,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-
-  partner-portal-bff:
-    image: 824572654562.dkr.ecr.us-east-1.amazonaws.com/partner-portal-bff:${BFF_TAG:-production}
-    container_name: partner-portal-bff-prod
-    restart: unless-stopped
-    ports:
-      - '127.0.0.1:3021:3000'
-    networks: [shared]
-    env_file: .env.bff.production
-    environment:
-      - NODE_ENV=production
 
 networks:
   shared:
