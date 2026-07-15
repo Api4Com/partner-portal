@@ -97,7 +97,7 @@ export const ROLE_BADGE: Record<UsuarioRole, { label: string, color: BadgeColor 
 /** Formata a última ligação (ISO) para pt-BR; vazio → "Nunca ligou". */
 export function fmtLastCall(iso: string): string {
   if (!iso) return 'Nunca ligou'
-  return fmtCallDateTime(iso) // mesmo +3h da API aplicado na tela de Relatórios
+  return fmtCallDateTime(iso) // mesma formatação (UTC) da tela de Relatórios
 }
 
 const NOMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elaine', 'Felipe', 'Gabriela', 'Hugo', 'Isabela', 'João', 'Karina', 'Lucas', 'Marina', 'Nelson', 'Olívia', 'Paulo', 'Renata', 'Sérgio', 'Tatiana', 'Vitor']

@@ -57,7 +57,7 @@ export function fmtDuration(sec: number): string {
   return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`
 }
 
-/** Data da ligação (ISO) → pt-BR com hora (já com o +3h da API — ver callTime). */
+/** Data da ligação (ISO) → pt-BR com hora (UTC — ver callTime). */
 export function fmtCallDate(iso: string): string {
   return fmtCallDateTime(iso)
 }

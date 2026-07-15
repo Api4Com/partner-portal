@@ -16,7 +16,7 @@ const myCommentCount = computed(() => myComments.value[props.item.id]?.length ??
 const isRadar = computed(() => props.item.horizon !== 'now')
 const shellClass = computed(() =>
   isRadar.value
-    ? 'border-dashed border-amber-200 bg-amber-50/30 shadow-none hover:border-amber-400'
+    ? 'border-dashed border-amber-200 bg-amber-50/30 shadow-none hover:border-amber-400 dark:border-violet-400/20 dark:bg-violet-400/5 dark:hover:border-violet-400/50'
     : 'border-default bg-default shadow-sm hover:border-brand-300 hover:shadow-lg'
 )
 </script>

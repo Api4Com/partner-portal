@@ -57,20 +57,20 @@ const requestOpen = ref(false)
 
       <!-- Camada 1: caixa de ideias no radar (exploratória, sem compromisso de entrega) -->
       <section>
-        <div class="rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 p-6">
+        <div class="rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 p-6 dark:border-violet-400/25 dark:bg-violet-400/5">
           <div class="mb-4 flex flex-col gap-2">
             <div class="flex items-center gap-2">
               <UIcon
                 name="i-lucide-radar"
-                class="h-5 w-5 text-amber-500"
+                class="h-5 w-5 text-amber-500 dark:text-violet-400"
               />
               <h2 class="text-lg font-semibold">
                 No radar
               </h2>
-              <span class="rounded-full bg-amber-100/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+              <span class="rounded-full bg-amber-100/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-violet-400/10 dark:text-violet-300 dark:ring-violet-400/20">
                 {{ radarItems.length }}
               </span>
-              <span class="ml-1 text-[11px] font-medium uppercase tracking-wide text-amber-600/80">
+              <span class="ml-1 text-[11px] font-medium uppercase tracking-wide text-amber-600/80 dark:text-violet-400/70">
                 Backlog de possibilidades
               </span>
             </div>
@@ -78,10 +78,10 @@ const requestOpen = ref(false)
               Um espaço aberto pra explorar possibilidades junto com você.
             </p>
             <!-- Selo de não-compromisso + enquadramento do voto -->
-            <div class="flex items-start gap-2 rounded-lg bg-amber-100/50 px-3 py-2 text-xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200/70">
+            <div class="flex items-start gap-2 rounded-lg bg-amber-100/50 px-3 py-2 text-xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200/70 dark:bg-violet-400/10 dark:text-violet-200/90 dark:ring-violet-400/20">
               <UIcon
                 name="i-lucide-info"
-                class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500"
+                class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-violet-400"
               />
               <span>
                 Estar aqui <strong class="font-semibold">não garante desenvolvimento</strong> — é onde avaliamos ideias antes de decidir.
@@ -105,13 +105,13 @@ const requestOpen = ref(false)
           </p>
 
           <!-- Escalonamento de urgência: baixo destaque, contato direto -->
-          <div class="mt-5 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 border-t border-amber-200/60 pt-4 text-center text-xs text-muted">
+          <div class="mt-5 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 border-t border-amber-200/60 pt-4 text-center text-xs text-muted dark:border-violet-400/15">
             <span>Alguma dessas ideias é crítica pra você ou seus clientes?</span>
             <a
               :href="whatsappUrl()"
               target="_blank"
               rel="noopener"
-              class="inline-flex items-center gap-1 font-semibold text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline"
+              class="inline-flex items-center gap-1 font-semibold text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline dark:text-violet-300 dark:hover:text-violet-200"
             >
               <UIcon
                 name="i-lucide-message-circle"

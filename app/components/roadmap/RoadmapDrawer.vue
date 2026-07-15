@@ -63,14 +63,14 @@ function vote(reaction: 'like' | 'dislike') {
             v-if="horizon"
             class="rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset"
             :class="horizon.id === 'now'
-              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-              : 'bg-amber-50 text-amber-700 ring-amber-200'"
+              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/20'
+              : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-violet-400/10 dark:text-violet-300 dark:ring-violet-400/20'"
           >
             {{ horizon.title }}
           </span>
           <span
             v-if="isRadar"
-            class="text-[11px] font-medium text-amber-600/90"
+            class="text-[11px] font-medium text-amber-600/90 dark:text-violet-400/80"
           >
             Em avaliação · ainda não é um compromisso de entrega
           </span>
@@ -225,19 +225,19 @@ function vote(reaction: 'like' | 'dislike') {
         <!-- Escalonamento de prioridade (só radar): baixo destaque, contextual -->
         <div
           v-if="isRadar"
-          class="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-4"
+          class="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-4 dark:border-violet-400/25 dark:bg-violet-400/5"
         >
-          <p class="text-sm font-medium text-amber-900">
+          <p class="text-sm font-medium text-amber-900 dark:text-violet-200">
             Você ou seus clientes precisam muito disso?
           </p>
-          <p class="mt-0.5 text-xs leading-relaxed text-amber-800/80">
+          <p class="mt-0.5 text-xs leading-relaxed text-amber-800/80 dark:text-violet-200/70">
             Nos conte o contexto. Demanda real de clientes é o que mais pesa quando decidimos o que priorizar.
           </p>
           <a
             :href="escalateHref"
             target="_blank"
             rel="noopener"
-            class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline"
+            class="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline dark:text-violet-300 dark:hover:text-violet-200"
           >
             <UIcon
               name="i-lucide-message-circle"
