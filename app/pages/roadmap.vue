@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { fetchRoadmapData } from '~/lib/roadmap'
+import { fetchRoadmapData, whatsappUrl } from '~/lib/roadmap'
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
@@ -55,25 +55,39 @@ const requestOpen = ref(false)
         </div>
       </section>
 
-      <!-- Camada 1: caixa de ideias no radar -->
+      <!-- Camada 1: caixa de ideias no radar (exploratória, sem compromisso de entrega) -->
       <section>
-        <div class="rounded-2xl border border-default bg-default p-6 shadow-sm ring-1 ring-amber-100">
-          <div class="mb-5 flex flex-col gap-1">
+        <div class="rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 p-6">
+          <div class="mb-4 flex flex-col gap-2">
             <div class="flex items-center gap-2">
               <UIcon
-                name="i-lucide-lightbulb"
+                name="i-lucide-radar"
                 class="h-5 w-5 text-amber-500"
               />
               <h2 class="text-lg font-semibold">
                 No radar
               </h2>
-              <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+              <span class="rounded-full bg-amber-100/70 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
                 {{ radarItems.length }}
+              </span>
+              <span class="ml-1 text-[11px] font-medium uppercase tracking-wide text-amber-600/80">
+                Backlog de possibilidades
               </span>
             </div>
             <p class="max-w-2xl text-sm text-muted">
-              Um espaço aberto pra explorar possibilidades
+              Um espaço aberto pra explorar possibilidades junto com você.
             </p>
+            <!-- Selo de não-compromisso + enquadramento do voto -->
+            <div class="flex items-start gap-2 rounded-lg bg-amber-100/50 px-3 py-2 text-xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200/70">
+              <UIcon
+                name="i-lucide-info"
+                class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500"
+              />
+              <span>
+                Estar aqui <strong class="font-semibold">não garante desenvolvimento</strong> — é onde avaliamos ideias antes de decidir.
+                <strong class="font-semibold">Seus votos</strong> ajudam a definir o que priorizamos primeiro.
+              </span>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -89,6 +103,23 @@ const requestOpen = ref(false)
           >
             Nenhuma ideia no radar por enquanto.
           </p>
+
+          <!-- Escalonamento de urgência: baixo destaque, contato direto -->
+          <div class="mt-5 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 border-t border-amber-200/60 pt-4 text-center text-xs text-muted">
+            <span>Alguma dessas ideias é crítica pra você ou seus clientes?</span>
+            <a
+              :href="whatsappUrl()"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1 font-semibold text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline"
+            >
+              <UIcon
+                name="i-lucide-message-circle"
+                class="h-3.5 w-3.5"
+              />
+              Fale com a gente
+            </a>
+          </div>
         </div>
       </section>
 

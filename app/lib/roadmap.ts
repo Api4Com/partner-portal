@@ -8,6 +8,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type PartnerProfile = 'commercial' | 'technical'
 export type Horizon = 'now' | 'radar'
 
+/** WhatsApp do gerente de parcerias (formato E.164, com DDI 55). */
+export const PARTNERSHIPS_WHATSAPP = '554833328518'
+
+/** Monta o link wa.me, opcionalmente com mensagem pré-preenchida. */
+export function whatsappUrl(text?: string): string {
+  const base = `https://wa.me/${PARTNERSHIPS_WHATSAPP}`
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base
+}
+
 /** Arquivo anexado (upload no Storage) com um rótulo exibido ao parceiro. */
 export interface FileLink { label: string, url: string, path: string }
 
