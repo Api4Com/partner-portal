@@ -3,13 +3,17 @@ import type { RoadmapItem } from '~/lib/roadmap'
 
 const props = defineProps<{ item: RoadmapItem }>()
 
-const { states, myComments, openItem, react } = useRoadmap()
+const { openItem } = useRoadmap()
 
-const state = computed(() => states.value[props.item.id])
-const likeCount = computed(() => state.value?.likeCount ?? 0)
-const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
-const myReaction = computed(() => state.value?.myReaction ?? null)
-const myCommentCount = computed(() => myComments.value[props.item.id]?.length ?? 0)
+// [DESATIVADO — será recolocado] Reações (gostei/não gostei) e contador de comentários.
+// Ao restaurar: troque a linha do useRoadmap por
+//   const { states, myComments, openItem, react } = useRoadmap()
+// e reative:
+// const state = computed(() => states.value[props.item.id])
+// const likeCount = computed(() => state.value?.likeCount ?? 0)
+// const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
+// const myReaction = computed(() => state.value?.myReaction ?? null)
+// const myCommentCount = computed(() => myComments.value[props.item.id]?.length ?? 0)
 
 // Itens do radar ganham cara de "rascunho" (borda tracejada, tom lavado):
 // comunica visualmente que é possibilidade, não compromisso.
@@ -45,8 +49,8 @@ const shellClass = computed(() =>
       {{ item.commercial.headline }}
     </p>
 
-    <div class="mt-3 flex items-center justify-between border-t border-default pt-3">
-      <!-- Reagir sem abrir o item -->
+    <div class="mt-3 flex items-center justify-end border-t border-default pt-3">
+      <!-- [DESATIVADO — será recolocado] Reagir sem abrir o item + contador de comentários:
       <div class="flex items-center gap-1.5">
         <button
           type="button"
@@ -92,6 +96,7 @@ const shellClass = computed(() =>
           {{ myCommentCount }}
         </span>
       </div>
+      -->
 
       <span class="inline-flex items-center gap-1 text-xs font-medium text-primary">
         Ver detalhes <UIcon

@@ -4,9 +4,7 @@ import { HORIZONS, type PartnerProfile, whatsappUrl } from '~/lib/roadmap'
 const {
   activeItem,
   activeItemId,
-  closeItem,
-  states,
-  react
+  closeItem
 } = useRoadmap()
 
 const isRadar = computed(() => activeItem.value?.horizon !== 'now')
@@ -30,10 +28,6 @@ const open = computed({
   }
 })
 
-const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
-const myReaction = computed(() => state.value?.myReaction ?? null)
-const likeCount = computed(() => state.value?.likeCount ?? 0)
-const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
 const horizon = computed(() => HORIZONS.find(h => h.id === activeItem.value?.horizon))
 
 // Força o download (Content-Disposition: attachment) em vez de abrir inline.
@@ -41,9 +35,15 @@ function downloadUrl(url: string) {
   return url + (url.includes('?') ? '&' : '?') + 'download'
 }
 
-function vote(reaction: 'like' | 'dislike') {
-  if (activeItem.value) react(activeItem.value.id, reaction)
-}
+// [DESATIVADO — será recolocado] Reações (gostei/não gostei).
+// Ao restaurar, adicione `states, react` ao destructure do useRoadmap e reative:
+// const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
+// const myReaction = computed(() => state.value?.myReaction ?? null)
+// const likeCount = computed(() => state.value?.likeCount ?? 0)
+// const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
+// function vote(reaction: 'like' | 'dislike') {
+//   if (activeItem.value) react(activeItem.value.id, reaction)
+// }
 </script>
 
 <template>
@@ -57,7 +57,7 @@ function vote(reaction: 'like' | 'dislike') {
         v-if="activeItem"
         class="space-y-5"
       >
-        <!-- Horizonte + abas -->
+        <!-- Horizonte -->
         <div class="flex flex-wrap items-center gap-2">
           <span
             v-if="horizon"
@@ -76,6 +76,7 @@ function vote(reaction: 'like' | 'dislike') {
           </span>
         </div>
 
+        <!-- [DESATIVADO — será recolocado] Seletor de abas Comercial/Técnico (aba Técnico removida):
         <div class="flex rounded-xl border border-default bg-muted p-1">
           <button
             type="button"
@@ -100,6 +101,7 @@ function vote(reaction: 'like' | 'dislike') {
             /> Técnico
           </button>
         </div>
+        -->
 
         <!-- Comercial -->
         <div
@@ -166,7 +168,7 @@ function vote(reaction: 'like' | 'dislike') {
           </section>
         </div>
 
-        <!-- Técnico -->
+        <!-- [DESATIVADO — será recolocado] Conteúdo da aba Técnico:
         <div
           v-else
           class="space-y-6"
@@ -221,6 +223,7 @@ function vote(reaction: 'like' | 'dislike') {
             </div>
           </section>
         </div>
+        -->
 
         <!-- Escalonamento de prioridade (só radar): baixo destaque, contextual -->
         <div
@@ -251,13 +254,15 @@ function vote(reaction: 'like' | 'dislike') {
           </a>
         </div>
 
-        <!-- Comentários (sempre visível, independente da aba) -->
+        <!-- [DESATIVADO — será recolocado] Comentários (sempre visível, independente da aba):
         <div class="border-t border-default pt-5">
           <RoadmapComments :item-id="activeItem.id" />
         </div>
+        -->
       </div>
     </template>
 
+    <!-- [DESATIVADO — será recolocado] Rodapé com Gostei / Não gostei:
     <template #footer>
       <div
         v-if="activeItem"
@@ -287,5 +292,6 @@ function vote(reaction: 'like' | 'dislike') {
         </UButton>
       </div>
     </template>
+    -->
   </USlideover>
 </template>
