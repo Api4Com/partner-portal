@@ -24,8 +24,9 @@ const nowItems = computed(() => items.value.filter(i => i.horizon === 'now'))
 // Caixa de ideias no radar: "próximo" + "futuro" juntos, sem ordem de prioridade.
 const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
 
-// Modal de "Solicitar demanda".
-const requestOpen = ref(false)
+// [DESATIVADO — será recolocado] Modal de "Solicitar demanda". Enquanto isso, o
+// botão vira um link direto pro WhatsApp (ver template).
+// const requestOpen = ref(false)
 </script>
 
 <template>
@@ -41,14 +42,27 @@ const requestOpen = ref(false)
               Construindo junto com você
             </h1>
             <p class="max-w-2xl text-sm text-muted">
-              Este é um espaço aberto pra explorar possibilidades junto com você. Vote nas ideias que importam, sugira o que está faltando e ajude a moldar pra onde o produto pode crescer.
+              Este é um espaço aberto pra explorar possibilidades junto com você. Veja o que está no radar, acompanhe o que já está sendo construído e fale com a gente pra sugerir o que falta.
             </p>
           </div>
+
+          <!-- [DESATIVADO — será recolocado] Botão que abre o formulário de solicitação:
           <UButton
             icon="i-lucide-lightbulb"
             size="lg"
             class="shrink-0"
             @click="requestOpen = true"
+          >
+            Solicitar demanda
+          </UButton>
+          -->
+          <UButton
+            icon="i-simple-icons-whatsapp"
+            size="lg"
+            class="shrink-0"
+            :to="whatsappUrl('Olá! Gostaria de solicitar uma demanda para o roadmap.')"
+            target="_blank"
+            rel="noopener"
           >
             Solicitar demanda
           </UButton>
@@ -77,15 +91,14 @@ const requestOpen = ref(false)
             <p class="max-w-2xl text-sm text-muted">
               Um espaço aberto pra explorar possibilidades junto com você.
             </p>
-            <!-- Selo de não-compromisso + enquadramento do voto -->
+            <!-- Selo de não-compromisso -->
             <div class="flex items-start gap-2 rounded-lg bg-amber-100/50 px-3 py-2 text-xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200/70 dark:bg-violet-400/10 dark:text-violet-200/90 dark:ring-violet-400/20">
               <UIcon
                 name="i-lucide-info"
                 class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-violet-400"
               />
               <span>
-                Estar aqui <strong class="font-semibold">não garante desenvolvimento</strong> — é onde avaliamos ideias antes de decidir.
-                <strong class="font-semibold">Seus votos</strong> ajudam a definir o que priorizamos primeiro.
+                Estar aqui <strong class="font-semibold">não garante desenvolvimento</strong> — é onde avaliamos ideias antes de decidir o que priorizar.
               </span>
             </div>
           </div>
@@ -163,5 +176,7 @@ const requestOpen = ref(false)
   </div>
 
   <RoadmapDrawer />
+  <!-- [DESATIVADO — será recolocado] Formulário de solicitação de demanda:
   <RoadmapRequestModal v-model:open="requestOpen" />
+  -->
 </template>
