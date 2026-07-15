@@ -1,0 +1,53 @@
+# Produção do partner-portal no host tools1.api4com.com (136.248.85.42).
+#
+# Modelo NATIVO do tools1: Docker standalone + docker-compose, nginx no host
+# (TLS via cert wildcard *.api4com.com em /var/www/api4com/certs), rede bridge
+# externa `platform_shared`. NÃO é swarm/traefik (esse é o modelo do .100).
+#
+# Os containers publicam SÓ em 127.0.0.1 (o nginx do host é quem expõe 443).
+# Envs reais (com segredos do BFF) ficam em .env.*.production ao lado deste arquivo,
+# NO HOST, fora do git. Ver os *.example versionados.
+#
+# Deploy (no tools1, em /var/www/html/partner-portal/):
+#   aws ecr get-login-password --region us-east-1 \
+#     | docker login --username AWS --password-stdin 824572654562.dkr.ecr.us-east-1.amazonaws.com
+#   docker compose -f docker-compose.production.yml pull
+#   docker compose -f docker-compose.production.yml up -d
+#
+# BFF hoje com 1 réplica (escala pra 2 depois: 2º container em 127.0.0.1:3021
+# + `upstream` no vhost partners-bff).
+
+services:
+  partner-portal:
+    image: 824572654562.dkr.ecr.us-east-1.amazonaws.com/partner-portal:${PORTAL_TAG:-production}
+    container_name: partner-portal-prod
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3020:3000'
+    networks: [shared]
+    env_file: .env.portal.production
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  partner-portal-bff:
+    image: 824572654562.dkr.ecr.us-east-1.amazonaws.com/partner-portal-bff:${BFF_TAG:-production}
+    container_name: partner-portal-bff-prod
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3021:3000'
+    networks: [shared]
+    env_file: .env.bff.production
+    environment:
+      - NODE_ENV=production
+
+networks:
+  shared:
+    name: platform_shared
+    driver: bridge
+    external: true
