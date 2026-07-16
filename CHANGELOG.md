@@ -5,6 +5,30 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [1.2.0] - 2026-07-16
+
+Novo menu de Conteúdos, tratamento do TMA no detalhe da subconta e a camada de
+demonstração dos 3 CRMs (dados reais de produção, com PII mascarada) para a
+apresentação comercial. Sem mudanças incompatíveis.
+
+### Adicionado
+
+**Conteúdos**
+- Menu "Conteúdos" com estudo em destaque e formulário de pedido de conteúdo
+  (`conteudos.vue`, `ConteudosCard`, `ConteudosSolicitar`).
+
+**Demonstração dos 3 CRMs (temporário)**
+- Camada de demo: logando com as contas demo, o portal exibe dados reais de
+  produção (subcontas, KPIs, chamadas) com a PII da pessoa mascarada
+  (nome/e-mail/telefone/gravação) — a empresa permanece visível. Detecção pela
+  identidade do usuário; sem alteração no BFF.
+- Roadmap: curtir/comentar/solicitar restaurados, persistindo em localStorage
+  apenas para as contas demo (os itens seguem vindos do Supabase).
+
+### Corrigido
+
+- Detalhe da subconta: trata `avgHandlingTimeSeconds` ausente sem quebrar (TEL-2102).
+
 ## [1.1.0] - 2026-07-15
 
 Refinamentos de UX sobre a 1.0.0: tema claro/escuro manual, ajustes no roadmap do
