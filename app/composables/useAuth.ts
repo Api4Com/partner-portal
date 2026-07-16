@@ -120,7 +120,7 @@ export function useAuth() {
       return demoFetch<T>(user.value, path, {
         query: (opts.query ?? undefined) as Record<string, unknown> | undefined,
         method: opts.method as string | undefined,
-        body: (opts as { body?: unknown }).body,
+        body: (opts as { body?: unknown }).body
       })
     }
 

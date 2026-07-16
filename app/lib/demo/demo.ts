@@ -83,7 +83,7 @@ interface DemoMeta {
 const META: DemoMeta[] = [
   { crm: 'pipedrive', crmLabel: 'Pipedrive', orgId: 'd095f865-2f78-4789-9367-dfe14695a50d', userUuid: 'cf50d379-10dd-439d-9228-b83743647c2d', aliasUuids: ['bdc51d09-6d56-40d7-a475-29b600ef2c44'], email: 'pipedrive@demo.api4com.com' },
   { crm: 'kommo', crmLabel: 'Kommo', orgId: '38f50e4a-606a-48bd-bd7b-c14346cf4a37', userUuid: '3b4fd209-fba2-439e-b9c5-5875d4450392', aliasUuids: ['89ab7cc6-4ee2-4358-81bb-f51c06815bee'], email: 'kommo@demo.api4com.com' },
-  { crm: 'rdstation-crm', crmLabel: 'RD Station CRM', orgId: 'd69ba721-c81f-48f0-a98c-a48e270cfa61', userUuid: '1f5e8579-b611-4f51-957e-b9c935e92484', aliasUuids: ['8da42b5e-57c8-4a78-8dc8-7b763cb1ae8a'], email: 'rdstation@demo.api4com.com' },
+  { crm: 'rdstation-crm', crmLabel: 'RD Station CRM', orgId: 'd69ba721-c81f-48f0-a98c-a48e270cfa61', userUuid: '1f5e8579-b611-4f51-957e-b9c935e92484', aliasUuids: ['8da42b5e-57c8-4a78-8dc8-7b763cb1ae8a'], email: 'rdstation@demo.api4com.com' }
 ]
 
 /** orgIds das contas demo — referência. */
@@ -161,7 +161,7 @@ function subaccountsResponse(account: DemoAccount) {
     users: s.users.length,
     minutes: s.minutes,
     status: s.status,
-    currentCrm: s.currentCrm,
+    currentCrm: s.currentCrm
   }))
 }
 
@@ -195,7 +195,7 @@ function summaryResponse(account: DemoAccount, q: Query) {
     volumeMinutes,
     answerRate,
     callsInPeriod,
-    avgHandlingTimeSeconds,
+    avgHandlingTimeSeconds
   }
 }
 
@@ -215,15 +215,16 @@ function callsResponse(account: DemoAccount, q: Query) {
     rows = rows.filter(c =>
       norm(c.userName).includes(search)
       || norm(c.number).includes(search)
-      || norm(c.subaccountName).includes(search),
+      || norm(c.subaccountName).includes(search)
     )
   }
 
   rows = [...rows].sort((a, b) => {
-    let cmp = 0
-    if (sort === 'duration') cmp = a.durationSeconds - b.durationSeconds
-    else if (sort === 'user') cmp = norm(a.userName).localeCompare(norm(b.userName))
-    else cmp = Date.parse(a.date) - Date.parse(b.date)
+    const cmp = sort === 'duration'
+      ? a.durationSeconds - b.durationSeconds
+      : sort === 'user'
+        ? norm(a.userName).localeCompare(norm(b.userName))
+        : Date.parse(a.date) - Date.parse(b.date)
     return cmp * order
   })
 
@@ -240,7 +241,7 @@ function callsResponse(account: DemoAccount, q: Query) {
     durationSeconds: c.durationSeconds,
     number: c.number,
     cause: c.cause,
-    recordingUrl: c.recordingUrl,
+    recordingUrl: c.recordingUrl
   }))
 
   return { data, total, page, pageSize, pages }
@@ -260,7 +261,7 @@ function subUsersResponse(account: DemoAccount, subId: string, q: Query) {
     role: u.role,
     active: u.active,
     currentCrm: u.currentCrm,
-    lastCall: u.lastCall ?? null,
+    lastCall: u.lastCall ?? null
   }))
 
   return { data: all.slice(offset, offset + limit), total: all.length, limit, offset }

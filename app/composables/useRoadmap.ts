@@ -1,6 +1,6 @@
 import type { CommentMap, ItemStateMap, Reaction, RoadmapComment, RoadmapItem } from '~/lib/roadmap'
 // [DEMO CRMs] persistência local das interações para as contas demo. Remover com app/lib/demo/.
-import { loadComments, makeComment, saveComments, saveReaction } from '~/lib/demo/demo-roadmap'
+import { makeComment, saveComments, saveReaction } from '~/lib/demo/demo-roadmap'
 
 /**
  * Estado + ações do Roadmap, compartilhados via useState (SSR-safe).

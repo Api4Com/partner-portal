@@ -44,9 +44,12 @@ export function loadReactions(email: string): DemoReactions {
 }
 export function saveReaction(email: string, itemId: string, reaction: Reaction | null): void {
   const all = loadReactions(email)
-  if (reaction === null) delete all[itemId]
-  else all[itemId] = reaction
-  write(reactionsKey(email), all)
+  if (reaction === null) {
+    const { [itemId]: _drop, ...rest } = all
+    write(reactionsKey(email), rest)
+    return
+  }
+  write(reactionsKey(email), { ...all, [itemId]: reaction })
 }
 
 export function loadComments(email: string): CommentMap {
@@ -65,7 +68,7 @@ export function addRequest(email: string, title: string, description: string): D
     id: `req-${Date.now()}`,
     title,
     description,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
   }
   write(requestsKey(email), [req, ...list])
   return req
@@ -83,7 +86,7 @@ export function addRequest(email: string, title: string, description: string): D
 export function overlayDemoInteractions(
   email: string,
   states: ItemStateMap,
-  _comments: CommentMap,
+  _comments: CommentMap
 ): { states: ItemStateMap, comments: CommentMap } {
   const myReactions = loadReactions(email)
   const nextStates: ItemStateMap = {}
@@ -92,7 +95,7 @@ export function overlayDemoInteractions(
     nextStates[itemId] = {
       likeCount: base.likeCount + (mine === 'like' ? 1 : 0),
       dislikeCount: base.dislikeCount + (mine === 'dislike' ? 1 : 0),
-      myReaction: mine,
+      myReaction: mine
     }
   }
   return { states: nextStates, comments: loadComments(email) }
