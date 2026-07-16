@@ -1,4 +1,6 @@
 import type { CommentMap, ItemStateMap, Reaction, RoadmapComment, RoadmapItem } from '~/lib/roadmap'
+// [DEMO CRMs] persistência local das interações para as contas demo. Remover com app/lib/demo/.
+import { makeComment, saveComments, saveReaction } from '~/lib/demo/demo-roadmap'
 
 /**
  * Estado + ações do Roadmap, compartilhados via useState (SSR-safe).
@@ -8,6 +10,9 @@ export function useRoadmap() {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
   const toast = useToast()
+  // [DEMO CRMs] nas contas demo as interações vão pro localStorage (não pro Supabase).
+  const demoEnabled = useDemoGate()
+  const demoEmail = () => user.value?.email ?? ''
 
   const items = useState<RoadmapItem[]>('rm-items', () => [])
   const states = useState<ItemStateMap>('rm-states', () => ({}))
@@ -29,7 +34,8 @@ export function useRoadmap() {
    */
   async function react(id: string, reaction: Reaction) {
     const current = states.value[id]
-    if (!current || !user.value || !supabase) return
+    // [DEMO CRMs] contas demo não têm Supabase — basta o estado e o localStorage.
+    if (!current || !user.value || (!supabase && !demoEnabled.value)) return
 
     const prev = current.myReaction
     const next: Reaction | null = prev === reaction ? null : reaction
@@ -46,6 +52,16 @@ export function useRoadmap() {
       ...states.value,
       [id]: { likeCount, dislikeCount, myReaction: next }
     }
+
+    // [DEMO CRMs] persiste a reação no localStorage e encerra (sem Supabase).
+    if (demoEnabled.value) {
+      saveReaction(demoEmail(), id, next)
+      return
+    }
+
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return
+
     pending.value = true
     try {
       if (next === null) {
@@ -70,7 +86,20 @@ export function useRoadmap() {
   /** Adiciona um comentário do usuário (pode ter vários por item). */
   async function addComment(itemId: string, body: string) {
     const text = body.trim()
-    if (!text || !user.value || !supabase) return
+    if (!text || !user.value || (!supabase && !demoEnabled.value)) return
+
+    // [DEMO CRMs] comentário local (localStorage), sem Supabase.
+    if (demoEnabled.value) {
+      const comment = makeComment(itemId, text)
+      const next = { ...myComments.value, [itemId]: [...(myComments.value[itemId] ?? []), comment] }
+      myComments.value = next
+      saveComments(demoEmail(), next)
+      return
+    }
+
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return
+
     pending.value = true
     try {
       // user_id vem do default auth.uid() no banco.
@@ -101,7 +130,24 @@ export function useRoadmap() {
   /** Edita um comentário do próprio usuário. */
   async function editComment(itemId: string, commentId: string, body: string) {
     const text = body.trim()
-    if (!text || !supabase) return
+    if (!text || (!supabase && !demoEnabled.value)) return
+
+    // [DEMO CRMs] edição local.
+    if (demoEnabled.value) {
+      const next = {
+        ...myComments.value,
+        [itemId]: (myComments.value[itemId] ?? []).map(c =>
+          c.id === commentId ? { ...c, body: text, updatedAt: new Date().toISOString() } : c
+        )
+      }
+      myComments.value = next
+      saveComments(demoEmail(), next)
+      return
+    }
+
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return
+
     pending.value = true
     try {
       const { data, error } = await supabase
@@ -126,7 +172,22 @@ export function useRoadmap() {
 
   /** Exclui um comentário do próprio usuário. */
   async function deleteComment(itemId: string, commentId: string) {
+    if (!supabase && !demoEnabled.value) return
+
+    // [DEMO CRMs] exclusão local.
+    if (demoEnabled.value) {
+      const next = {
+        ...myComments.value,
+        [itemId]: (myComments.value[itemId] ?? []).filter(c => c.id !== commentId)
+      }
+      myComments.value = next
+      saveComments(demoEmail(), next)
+      return
+    }
+
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
     if (!supabase) return
+
     pending.value = true
     try {
       const { error } = await supabase.from('roadmap_comments').delete().eq('id', commentId)

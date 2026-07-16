@@ -9,6 +9,7 @@ const operacao = [
 ]
 const plataforma = [
   { label: 'Credenciais', icon: 'i-lucide-key-round', to: '/credenciais' },
+  { label: 'Conteúdos', icon: 'i-lucide-book-open', to: '/conteudos' },
   { label: 'Playbook', icon: 'i-lucide-cable', disabled: true }
 ]
 const adminItems = [{ label: 'Admin', icon: 'i-lucide-shield', to: '/admin' }]
