@@ -4,8 +4,12 @@ import { HORIZONS, type PartnerProfile, whatsappUrl } from '~/lib/roadmap'
 const {
   activeItem,
   activeItemId,
-  closeItem
+  closeItem,
+  states,
+  react
 } = useRoadmap()
+// [DEMO CRMs] reações/comentários só aparecem para as contas demo.
+const demoEnabled = useDemoGate()
 
 const isRadar = computed(() => activeItem.value?.horizon !== 'now')
 
@@ -35,15 +39,14 @@ function downloadUrl(url: string) {
   return url + (url.includes('?') ? '&' : '?') + 'download'
 }
 
-// [DESATIVADO — será recolocado] Reações (gostei/não gostei).
-// Ao restaurar, adicione `states, react` ao destructure do useRoadmap e reative:
-// const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
-// const myReaction = computed(() => state.value?.myReaction ?? null)
-// const likeCount = computed(() => state.value?.likeCount ?? 0)
-// const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
-// function vote(reaction: 'like' | 'dislike') {
-//   if (activeItem.value) react(activeItem.value.id, reaction)
-// }
+// [DEMO CRMs] Reações (gostei/não gostei) — só nas contas demo.
+const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
+const myReaction = computed(() => state.value?.myReaction ?? null)
+const likeCount = computed(() => state.value?.likeCount ?? 0)
+const dislikeCount = computed(() => state.value?.dislikeCount ?? 0)
+function vote(reaction: 'like' | 'dislike') {
+  if (activeItem.value) react(activeItem.value.id, reaction)
+}
 </script>
 
 <template>
@@ -254,16 +257,21 @@ function downloadUrl(url: string) {
           </a>
         </div>
 
-        <!-- [DESATIVADO — será recolocado] Comentários (sempre visível, independente da aba):
-        <div class="border-t border-default pt-5">
+        <!-- [DEMO CRMs] Comentários (só contas demo, sempre visível). -->
+        <div
+          v-if="demoEnabled"
+          class="border-t border-default pt-5"
+        >
           <RoadmapComments :item-id="activeItem.id" />
         </div>
-        -->
       </div>
     </template>
 
-    <!-- [DESATIVADO — será recolocado] Rodapé com Gostei / Não gostei:
-    <template #footer>
+    <!-- [DEMO CRMs] Rodapé com Gostei / Não gostei — só nas contas demo. -->
+    <template
+      v-if="demoEnabled"
+      #footer
+    >
       <div
         v-if="activeItem"
         class="flex w-full gap-2"
@@ -292,6 +300,5 @@ function downloadUrl(url: string) {
         </UButton>
       </div>
     </template>
-    -->
   </USlideover>
 </template>

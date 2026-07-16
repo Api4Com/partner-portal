@@ -1,19 +1,43 @@
 <script setup lang="ts">
 import { fetchRoadmapData, whatsappUrl } from '~/lib/roadmap'
+import { overlayDemoInteractions } from '~/lib/demo/demo-roadmap' // [DEMO CRMs]
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+// [DEMO CRMs] garante o usuário no cliente (F5): a auth SSR não resolve, e o
+// middleware global não re-roda na carga inicial — sem isto o `user` ficaria null.
+const { user: authUser, fetchUser } = useAuth()
 const { items, states, myComments } = useRoadmap()
+// [DEMO CRMs] contas demo: os ITENS vêm do Supabase como sempre; só as INTERAÇÕES
+// (reação/comentários) são sobrepostas do localStorage.
+const demoEnabled = useDemoGate()
 
-// Lê itens publicados + estado do usuário (SSR).
-const { data } = await useAsyncData('roadmap', async () => {
+// Lê itens publicados + estado do usuário. A auth SSR não resolve o usuário, então
+// no servidor isto volta vazio e o Nuxt cacheia esse vazio — por isso REBUSCAMOS no
+// cliente (`refresh()` no onMounted), senão o roadmap "some" no F5.
+const { data, refresh } = await useAsyncData('roadmap', async () => {
   if (!user.value || !supabase) return { items: [], states: {}, comments: {} }
   return await fetchRoadmapData(supabase, user.value.id)
 })
 
+// No F5 a auth SSR não resolve o usuário, então o `useAsyncData` volta vazio e o
+// Nuxt cacheia isso. Ao montar no cliente: garante o usuário e REBUSCA os itens —
+// senão o roadmap aparece vazio ao recarregar.
+onMounted(async () => {
+  if (!authUser.value) await fetchUser()
+  await refresh()
+})
+
 watchEffect(() => {
-  if (data.value) {
-    items.value = data.value.items
+  if (!data.value) return
+  items.value = data.value.items
+  // [DEMO CRMs] nas contas demo, sobrepõe reação/comentários do localStorage por cima
+  // do que veio do Supabase (só no cliente — o localStorage não existe no SSR).
+  if (import.meta.client && demoEnabled.value && user.value) {
+    const { states: s, comments: c } = overlayDemoInteractions(user.value.email, data.value.states, data.value.comments)
+    states.value = s
+    myComments.value = c
+  } else {
     states.value = data.value.states
     myComments.value = data.value.comments
   }
@@ -24,9 +48,9 @@ const nowItems = computed(() => items.value.filter(i => i.horizon === 'now'))
 // Caixa de ideias no radar: "próximo" + "futuro" juntos, sem ordem de prioridade.
 const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
 
-// [DESATIVADO — será recolocado] Modal de "Solicitar demanda". Enquanto isso, o
-// botão vira um link direto pro WhatsApp (ver template).
-// const requestOpen = ref(false)
+// [DEMO CRMs] Modal de "Solicitar demanda" — restaurado só para as contas demo.
+// Fora delas, o botão continua sendo o link direto pro WhatsApp (ver template).
+const requestOpen = ref(false)
 </script>
 
 <template>
@@ -46,8 +70,9 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
             </p>
           </div>
 
-          <!-- [DESATIVADO — será recolocado] Botão que abre o formulário de solicitação:
+          <!-- [DEMO CRMs] Contas demo abrem o formulário; as demais seguem no WhatsApp. -->
           <UButton
+            v-if="demoEnabled"
             icon="i-lucide-lightbulb"
             size="lg"
             class="shrink-0"
@@ -55,8 +80,8 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
           >
             Solicitar demanda
           </UButton>
-          -->
           <UButton
+            v-else
             icon="i-simple-icons-whatsapp"
             size="lg"
             class="shrink-0"
@@ -176,7 +201,9 @@ const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
   </div>
 
   <RoadmapDrawer />
-  <!-- [DESATIVADO — será recolocado] Formulário de solicitação de demanda:
-  <RoadmapRequestModal v-model:open="requestOpen" />
-  -->
+  <!-- [DEMO CRMs] Formulário de solicitação de demanda — só para as contas demo. -->
+  <RoadmapRequestModal
+    v-if="demoEnabled"
+    v-model:open="requestOpen"
+  />
 </template>

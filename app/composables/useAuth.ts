@@ -2,6 +2,8 @@
 // de sessão do pbx (não é JWT: não tem claims, não dá para decodificar e não há
 // refresh). O usuário atual vem de GET /users/me; o escopo das subcontas é
 // derivado no BFF a cada request.
+import { isDemoUser, demoFetch } from '~/lib/demo/demo' // [DEMO CRMs] remover com app/lib/demo/
+
 export interface PbxUser {
   uuid: string
   name?: string
@@ -10,6 +12,8 @@ export interface PbxUser {
   role?: string
   status?: string
   organizationId?: string
+  /** CRM atual do usuário no pbx (pipedrive/kommo/rdstation-crm). [DEMO CRMs] */
+  currentCrm?: string | null
 }
 
 // POST /users/login → sessão opaca do pbx (403 = conta não é parceira).
@@ -109,6 +113,17 @@ export function useAuth() {
 
   // Em 401 a sessão acabou (não há refresh): limpa e manda para o /login.
   async function bffFetch<T>(path: string, opts: Parameters<typeof $fetch>[1] = {}): Promise<T> {
+    // [DEMO CRMs] Contas demo (Pipedrive/Kommo/RD Station) leem os DADOS do
+    // arquivo JSON local em vez do BFF. Login/fetchUser continuam reais; só os
+    // endpoints de dados são resolvidos aqui. Remover junto com `app/lib/demo/`.
+    if (isDemoUser(user.value)) {
+      return demoFetch<T>(user.value, path, {
+        query: (opts.query ?? undefined) as Record<string, unknown> | undefined,
+        method: opts.method as string | undefined,
+        body: (opts as { body?: unknown }).body
+      })
+    }
+
     try {
       // O cast é necessário: `$fetch<T>` devolve `TypedInternalResponse<…, T>`, que o
       // TS não consegue provar ser `T` quando `T` é um genérico do chamador (ele pode

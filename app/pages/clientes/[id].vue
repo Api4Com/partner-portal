@@ -65,7 +65,9 @@ function mapUser(u: BffSubUser): Usuario {
 const totalCalls = computed(() => (summary.value ? fmt(summary.value.callsInPeriod) : '—'))
 const tma = computed(() => {
   const s = summary.value
-  if (!s || !s.callsInPeriod) return '—'
+  // avgHandlingTimeSeconds pode faltar num payload de BFF defasado (pré-9ae248c):
+  // sem o guard, `undefined/60` vazava "NaNm NaNs" na tela. Degrada pra "—".
+  if (!s || !s.callsInPeriod || s.avgHandlingTimeSeconds == null) return '—'
   const secs = s.avgHandlingTimeSeconds // vem pronto do BFF (segundos, sobre as atendidas)
   return `${Math.floor(secs / 60)}m ${secs % 60}s`
 })
@@ -75,7 +77,7 @@ async function loadDetail() {
   try {
     // Sem `from`/`to`: o BFF usa a janela de 30d ancorada na meia-noite (default
     // last30DaysIso). Mandar `from` com a hora do clique fazia a janela "andar" e o
-    // total/TMA mudarem a cada load — desalinhando do dashboard do api4com.
+    // total/TMA mudarem a cada load — desalinhando do dashboard do API4COM.
     const [subs, usersResp, sum] = await Promise.all([
       bffFetch<BffSubaccount[]>('/subaccounts'),
       bffFetch<{ data: BffSubUser[] }>(`/subaccounts/${id}/users`).catch(() => ({ data: [] as BffSubUser[] })),
