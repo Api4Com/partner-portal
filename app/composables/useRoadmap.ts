@@ -59,6 +59,9 @@ export function useRoadmap() {
       return
     }
 
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return
+
     pending.value = true
     try {
       if (next === null) {
@@ -93,6 +96,9 @@ export function useRoadmap() {
       saveComments(demoEmail(), next)
       return
     }
+
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return
 
     pending.value = true
     try {
@@ -139,6 +145,9 @@ export function useRoadmap() {
       return
     }
 
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return
+
     pending.value = true
     try {
       const { data, error } = await supabase
@@ -175,6 +184,9 @@ export function useRoadmap() {
       saveComments(demoEmail(), next)
       return
     }
+
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return
 
     pending.value = true
     try {

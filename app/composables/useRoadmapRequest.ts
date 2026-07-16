@@ -31,6 +31,9 @@ export function useRoadmapRequest() {
       return true
     }
 
+    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
+    if (!supabase) return false
+
     sending.value = true
     try {
       // user_id vem do default auth.uid() no banco. Sem .select(): o parceiro

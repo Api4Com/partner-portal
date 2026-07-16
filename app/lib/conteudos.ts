@@ -37,8 +37,11 @@ export interface Conteudo {
   featured?: boolean
 }
 
+/** Cores válidas do `UBadge` (Nuxt UI). */
+type BadgeColor = 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'
+
 /** Metadados de apresentação por tipo (label + cor do badge + ícone). */
-export const TIPO_META: Record<ConteudoTipo, { label: string, color: string, icon: string }> = {
+export const TIPO_META: Record<ConteudoTipo, { label: string, color: BadgeColor, icon: string }> = {
   estudo: { label: 'Estudo', color: 'primary', icon: 'i-lucide-chart-column' },
   artigo: { label: 'Artigo', color: 'neutral', icon: 'i-lucide-newspaper' },
   guia: { label: 'Guia', color: 'success', icon: 'i-lucide-compass' },
