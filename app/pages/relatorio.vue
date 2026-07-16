@@ -111,7 +111,7 @@ const filtersReady = computed(() => !customRangePending.value && !customRangeInv
 /**
  * Período selecionado → { from, to } ISO para a query do BFF.
  * Todos os presets são ancorados em fronteira de dia (meia-noite), igual ao
- * dashboard do api4com — senão a janela "anda" com a hora do clique e o total
+ * dashboard do API4COM — senão a janela "anda" com a hora do clique e o total
  * muda a cada load. `to` é o INÍCIO do dia seguinte, não `23:59:59`: o pbx usa
  * `started_at < to` (fronteira aberta à direita), então `amanhã 00:00` inclui o
  * dia inteiro sem perder o último segundo nem contar em dobro na virada.

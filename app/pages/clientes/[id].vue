@@ -75,7 +75,7 @@ async function loadDetail() {
   try {
     // Sem `from`/`to`: o BFF usa a janela de 30d ancorada na meia-noite (default
     // last30DaysIso). Mandar `from` com a hora do clique fazia a janela "andar" e o
-    // total/TMA mudarem a cada load — desalinhando do dashboard do api4com.
+    // total/TMA mudarem a cada load — desalinhando do dashboard do API4COM.
     const [subs, usersResp, sum] = await Promise.all([
       bffFetch<BffSubaccount[]>('/subaccounts'),
       bffFetch<{ data: BffSubUser[] }>(`/subaccounts/${id}/users`).catch(() => ({ data: [] as BffSubUser[] })),
