@@ -8,8 +8,6 @@ const {
   states,
   react
 } = useRoadmap()
-// [DEMO CRMs] reações/comentários só aparecem para as contas demo.
-const demoEnabled = useDemoGate()
 
 const isRadar = computed(() => activeItem.value?.horizon !== 'now')
 
@@ -39,7 +37,7 @@ function downloadUrl(url: string) {
   return url + (url.includes('?') ? '&' : '?') + 'download'
 }
 
-// [DEMO CRMs] Reações (gostei/não gostei) — só nas contas demo.
+// Reações (gostei/não gostei) do item aberto.
 const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
 const myReaction = computed(() => state.value?.myReaction ?? null)
 const likeCount = computed(() => state.value?.likeCount ?? 0)
@@ -257,21 +255,15 @@ function vote(reaction: 'like' | 'dislike') {
           </a>
         </div>
 
-        <!-- [DEMO CRMs] Comentários (só contas demo, sempre visível). -->
-        <div
-          v-if="demoEnabled"
-          class="border-t border-default pt-5"
-        >
+        <!-- Comentários do parceiro no item. -->
+        <div class="border-t border-default pt-5">
           <RoadmapComments :item-id="activeItem.id" />
         </div>
       </div>
     </template>
 
-    <!-- [DEMO CRMs] Rodapé com Gostei / Não gostei — só nas contas demo. -->
-    <template
-      v-if="demoEnabled"
-      #footer
-    >
+    <!-- Rodapé com Gostei / Não gostei do item aberto. -->
+    <template #footer>
       <div
         v-if="activeItem"
         class="flex w-full gap-2"

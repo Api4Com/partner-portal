@@ -149,3 +149,67 @@ export async function fetchRoadmapData(
 
   return { items, states, comments }
 }
+
+/* ------------------------------------------------------------ leitura (BFF) */
+
+/**
+ * Item do roadmap como o BFF/engagement-service devolve (camelCase, já com o estado
+ * de interação do usuário logado). Espelha o contrato do partner-portal-bff
+ * (`integration/engagement-service/engagement.types.ts`).
+ */
+export interface RoadmapItemView {
+  id: string
+  title: string
+  horizon: Horizon
+  tag?: string
+  summary: string
+  commercial: CommercialContent
+  technical: TechnicalContent
+  published: boolean
+  sortOrder: number
+  likeCount: number
+  dislikeCount: number
+  myReaction: Reaction | null
+  myComments: RoadmapComment[]
+  createdAt: string
+  updatedAt: string
+}
+
+/** Assinatura mínima do `bffFetch` do `useAuth` (evita acoplar o tipo inteiro). */
+type BffFetch = <T>(path: string, opts?: { skipDemo?: boolean }) => Promise<T>
+
+/**
+ * Lê os itens publicados + estado do usuário pelo BFF (Modelo B). Substitui o
+ * `fetchRoadmapData` (Supabase) no caminho do parceiro. `skipDemo` garante itens
+ * reais também nas contas demo (as interações demo são sobrepostas em `roadmap.vue`).
+ */
+export async function fetchRoadmapFromBff(
+  bffFetch: BffFetch
+): Promise<{ items: RoadmapItem[], states: ItemStateMap, comments: CommentMap }> {
+  const views = await bffFetch<RoadmapItemView[]>('/roadmap/items', { skipDemo: true })
+
+  const items: RoadmapItem[] = []
+  const states: ItemStateMap = {}
+  const comments: CommentMap = {}
+
+  for (const v of views ?? []) {
+    items.push({
+      id: v.id,
+      title: v.title,
+      horizon: v.horizon,
+      summary: v.summary,
+      commercial: v.commercial,
+      technical: v.technical,
+      published: v.published,
+      sortOrder: v.sortOrder
+    })
+    states[v.id] = {
+      likeCount: v.likeCount,
+      dislikeCount: v.dislikeCount,
+      myReaction: v.myReaction
+    }
+    comments[v.id] = v.myComments ?? []
+  }
+
+  return { items, states, comments }
+}
