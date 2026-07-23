@@ -1,18 +1,12 @@
 import type { CommentMap, ItemStateMap, Reaction, RoadmapComment, RoadmapItem } from '~/lib/roadmap'
-// [DEMO CRMs] persistência local das interações para as contas demo. Remover com app/lib/demo/.
-import { makeComment, saveComments, saveReaction } from '~/lib/demo/demo-roadmap'
 
 /**
  * Estado + ações do Roadmap, compartilhados via useState (SSR-safe).
- * A reação (Gostei / Não gostei) vai direto ao Supabase (RLS), com update otimista.
+ * Reações e comentários vão ao BFF (`bffFetch`), com update otimista.
  */
 export function useRoadmap() {
-  const supabase = useSupabaseClient()
-  const user = useSupabaseUser()
+  const { user, bffFetch } = useAuth()
   const toast = useToast()
-  // [DEMO CRMs] nas contas demo as interações vão pro localStorage (não pro Supabase).
-  const demoEnabled = useDemoGate()
-  const demoEmail = () => user.value?.email ?? ''
 
   const items = useState<RoadmapItem[]>('rm-items', () => [])
   const states = useState<ItemStateMap>('rm-states', () => ({}))
@@ -34,8 +28,7 @@ export function useRoadmap() {
    */
   async function react(id: string, reaction: Reaction) {
     const current = states.value[id]
-    // [DEMO CRMs] contas demo não têm Supabase — basta o estado e o localStorage.
-    if (!current || !user.value || (!supabase && !demoEnabled.value)) return
+    if (!current || !user.value) return
 
     const prev = current.myReaction
     const next: Reaction | null = prev === reaction ? null : reaction
@@ -53,27 +46,14 @@ export function useRoadmap() {
       [id]: { likeCount, dislikeCount, myReaction: next }
     }
 
-    // [DEMO CRMs] persiste a reação no localStorage e encerra (sem Supabase).
-    if (demoEnabled.value) {
-      saveReaction(demoEmail(), id, next)
-      return
-    }
-
-    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
-    if (!supabase) return
-
     pending.value = true
     try {
+      // O toggle é do BFF/engagement: remover = DELETE; aplicar/trocar = PUT. O
+      // `userId` sai do header (`x-user-uuid`), nunca do body.
       if (next === null) {
-        // RLS já limita a exclusão à linha do próprio usuário.
-        const { error } = await supabase.from('roadmap_interests').delete().eq('item_id', id)
-        if (error) throw error
+        await bffFetch(`/roadmap/items/${id}/reaction`, { method: 'DELETE', skipDemo: true })
       } else {
-        // user_id vem do default auth.uid() no banco.
-        const { error } = await supabase
-          .from('roadmap_interests')
-          .upsert({ item_id: id, reaction: next }, { onConflict: 'item_id,user_id' })
-        if (error) throw error
+        await bffFetch(`/roadmap/items/${id}/reaction`, { method: 'PUT', body: { reaction: next }, skipDemo: true })
       }
     } catch {
       states.value = { ...states.value, [id]: current }
@@ -86,36 +66,16 @@ export function useRoadmap() {
   /** Adiciona um comentário do usuário (pode ter vários por item). */
   async function addComment(itemId: string, body: string) {
     const text = body.trim()
-    if (!text || !user.value || (!supabase && !demoEnabled.value)) return
-
-    // [DEMO CRMs] comentário local (localStorage), sem Supabase.
-    if (demoEnabled.value) {
-      const comment = makeComment(itemId, text)
-      const next = { ...myComments.value, [itemId]: [...(myComments.value[itemId] ?? []), comment] }
-      myComments.value = next
-      saveComments(demoEmail(), next)
-      return
-    }
-
-    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
-    if (!supabase) return
+    if (!text || !user.value) return
 
     pending.value = true
     try {
-      // user_id vem do default auth.uid() no banco.
-      const { data, error } = await supabase
-        .from('roadmap_comments')
-        .insert({ item_id: itemId, body: text })
-        .select('id, item_id, body, created_at, updated_at')
-        .single()
-      if (error) throw error
-      const comment: RoadmapComment = {
-        id: data.id,
-        itemId: data.item_id,
-        body: data.body,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at
-      }
+      // O BFF devolve o comentário já no formato do front (id/itemId/body/timestamps).
+      const comment = await bffFetch<RoadmapComment>(`/roadmap/items/${itemId}/comments`, {
+        method: 'POST',
+        body: { body: text },
+        skipDemo: true
+      })
       myComments.value = {
         ...myComments.value,
         [itemId]: [...(myComments.value[itemId] ?? []), comment]
@@ -130,37 +90,20 @@ export function useRoadmap() {
   /** Edita um comentário do próprio usuário. */
   async function editComment(itemId: string, commentId: string, body: string) {
     const text = body.trim()
-    if (!text || (!supabase && !demoEnabled.value)) return
-
-    // [DEMO CRMs] edição local.
-    if (demoEnabled.value) {
-      const next = {
-        ...myComments.value,
-        [itemId]: (myComments.value[itemId] ?? []).map(c =>
-          c.id === commentId ? { ...c, body: text, updatedAt: new Date().toISOString() } : c
-        )
-      }
-      myComments.value = next
-      saveComments(demoEmail(), next)
-      return
-    }
-
-    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
-    if (!supabase) return
+    if (!text) return
 
     pending.value = true
     try {
-      const { data, error } = await supabase
-        .from('roadmap_comments')
-        .update({ body: text })
-        .eq('id', commentId)
-        .select('updated_at')
-        .single()
-      if (error) throw error
+      // O engagement barra editar comentário de outro `userId` (403).
+      const updated = await bffFetch<RoadmapComment>(`/roadmap/items/${itemId}/comments/${commentId}`, {
+        method: 'PATCH',
+        body: { body: text },
+        skipDemo: true
+      })
       myComments.value = {
         ...myComments.value,
         [itemId]: (myComments.value[itemId] ?? []).map(c =>
-          c.id === commentId ? { ...c, body: text, updatedAt: data.updated_at } : c
+          c.id === commentId ? { ...c, body: text, updatedAt: updated.updatedAt } : c
         )
       }
     } catch {
@@ -172,26 +115,9 @@ export function useRoadmap() {
 
   /** Exclui um comentário do próprio usuário. */
   async function deleteComment(itemId: string, commentId: string) {
-    if (!supabase && !demoEnabled.value) return
-
-    // [DEMO CRMs] exclusão local.
-    if (demoEnabled.value) {
-      const next = {
-        ...myComments.value,
-        [itemId]: (myComments.value[itemId] ?? []).filter(c => c.id !== commentId)
-      }
-      myComments.value = next
-      saveComments(demoEmail(), next)
-      return
-    }
-
-    // Fora do demo, o guard inicial já garantiu supabase != null — reestreita p/ o TS.
-    if (!supabase) return
-
     pending.value = true
     try {
-      const { error } = await supabase.from('roadmap_comments').delete().eq('id', commentId)
-      if (error) throw error
+      await bffFetch(`/roadmap/items/${itemId}/comments/${commentId}`, { method: 'DELETE', skipDemo: true })
       myComments.value = {
         ...myComments.value,
         [itemId]: (myComments.value[itemId] ?? []).filter(c => c.id !== commentId)

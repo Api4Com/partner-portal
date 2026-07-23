@@ -4,8 +4,14 @@ import { fmtDate, type AdminData, type AdminRequest } from '~/lib/admin'
 
 const props = defineProps<{ data: AdminData, userEmail: string }>()
 
-const supabase = useSupabaseClient()
+const { bffFetch } = useAuth()
 const toast = useToast()
+
+/** Mensagem de erro do BFF (ou uma genérica) para o toast. */
+function errMessage(err: unknown): string {
+  const e = err as { data?: { message?: string }, message?: string }
+  return e?.data?.message ?? e?.message ?? 'Tente novamente em instantes.'
+}
 
 type Tab = 'roadmap' | 'feedback' | 'requests'
 const tab = ref<Tab>('roadmap')
@@ -69,35 +75,51 @@ async function refresh() {
 }
 
 async function togglePublish(item: RoadmapItem) {
-  if (!supabase) return
-  const { error } = await supabase.from('roadmap_items').update({ published: !item.published }).eq('id', item.id)
-  if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
+  try {
+    await bffFetch(`/roadmap/items/${item.id}`, {
+      method: 'PATCH',
+      body: { published: !item.published },
+      skipDemo: true
+    })
+  } catch (err) {
+    return toast.add({ title: 'Erro', description: errMessage(err), color: 'error', icon: 'i-lucide-triangle-alert' })
+  }
   toast.add({ title: item.published ? 'Ocultado.' : 'Visível agora.', color: 'success', icon: 'i-lucide-circle-check' })
   await refresh()
 }
 
 async function removeItem(item: RoadmapItem) {
-  if (!supabase) return
   if (!window.confirm(`Excluir "${item.title}"? Isso remove também as reações vinculadas.`)) return
-  const { error } = await supabase.from('roadmap_items').delete().eq('id', item.id)
-  if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
+  try {
+    await bffFetch(`/roadmap/items/${item.id}`, { method: 'DELETE', skipDemo: true })
+  } catch (err) {
+    return toast.add({ title: 'Erro', description: errMessage(err), color: 'error', icon: 'i-lucide-triangle-alert' })
+  }
   toast.add({ title: 'Item excluído.', color: 'success', icon: 'i-lucide-circle-check' })
   await refresh()
 }
 
 async function toggleArchive(req: AdminRequest) {
-  if (!supabase) return
-  const { error } = await supabase.from('roadmap_requests').update({ archived: !req.archived }).eq('id', req.id)
-  if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
+  try {
+    await bffFetch(`/roadmap/requests/${req.id}`, {
+      method: 'PATCH',
+      body: { archived: !req.archived },
+      skipDemo: true
+    })
+  } catch (err) {
+    return toast.add({ title: 'Erro', description: errMessage(err), color: 'error', icon: 'i-lucide-triangle-alert' })
+  }
   toast.add({ title: req.archived ? 'Demanda reativada.' : 'Demanda arquivada.', color: 'success', icon: 'i-lucide-circle-check' })
   await refresh()
 }
 
 async function removeRequest(req: AdminRequest) {
-  if (!supabase) return
   if (!window.confirm(`Excluir a demanda "${req.title}"? Esta ação não pode ser desfeita.`)) return
-  const { error } = await supabase.from('roadmap_requests').delete().eq('id', req.id)
-  if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
+  try {
+    await bffFetch(`/roadmap/requests/${req.id}`, { method: 'DELETE', skipDemo: true })
+  } catch (err) {
+    return toast.add({ title: 'Erro', description: errMessage(err), color: 'error', icon: 'i-lucide-triangle-alert' })
+  }
   toast.add({ title: 'Demanda excluída.', color: 'success', icon: 'i-lucide-circle-check' })
   await refresh()
 }

@@ -31,14 +31,7 @@ export default defineNuxtConfig({
       // Esta é a URL vista pelo NAVEGADOR.
       bffBase: process.env.BFF_BASE || process.env.NUXT_PUBLIC_BFF_BASE_URL || 'http://localhost:3005',
       // reCAPTCHA v3 (action "signup") — o signup do pbx valida. Chave de dev por padrão.
-      recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
-
-      // Supabase: fonte de dados APENAS do roadmap/admin (itens, reações, comentários,
-      // Storage). NÃO é autenticação — quem loga é o pbx (`middleware/auth.global.ts`).
-      // Ausente => `useSupabaseClient()` devolve null e o roadmap degrada para vazio,
-      // sem derrubar o resto do portal. Sobrescrevível em runtime por NUXT_PUBLIC_*.
-      supabaseUrl: process.env.SUPABASE_URL || '',
-      supabaseKey: process.env.SUPABASE_KEY || ''
+      recaptchaSiteKey: process.env.NUXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
     }
   },
 

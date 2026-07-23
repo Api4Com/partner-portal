@@ -4,8 +4,6 @@ import type { RoadmapItem } from '~/lib/roadmap'
 const props = defineProps<{ item: RoadmapItem }>()
 
 const { states, myComments, openItem, react } = useRoadmap()
-// [DEMO CRMs] reações/comentários só aparecem para as contas demo.
-const demoEnabled = useDemoGate()
 
 const state = computed(() => states.value[props.item.id])
 const likeCount = computed(() => state.value?.likeCount ?? 0)
@@ -48,11 +46,8 @@ const shellClass = computed(() =>
     </p>
 
     <div class="mt-3 flex items-center justify-between border-t border-default pt-3">
-      <!-- [DEMO CRMs] Reagir sem abrir o item + contador de comentários (só contas demo). -->
-      <div
-        v-if="demoEnabled"
-        class="flex items-center gap-1.5"
-      >
+      <!-- Reagir sem abrir o item + contador de comentários próprios. -->
+      <div class="flex items-center gap-1.5">
         <button
           type="button"
           class="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors"
@@ -97,7 +92,6 @@ const shellClass = computed(() =>
           {{ myCommentCount }}
         </span>
       </div>
-      <span v-else />
 
       <span class="inline-flex items-center gap-1 text-xs font-medium text-primary">
         Ver detalhes <UIcon

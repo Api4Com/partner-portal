@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { slugify } from '~/lib/admin'
 import type { FileLink, Horizon, RoadmapItem } from '~/lib/roadmap'
 
 const open = defineModel<boolean>('open', { required: true })
 const props = defineProps<{ item: RoadmapItem | null }>()
 const emit = defineEmits<{ saved: [] }>()
 
-const supabase = useSupabaseClient()
+const { bffFetch } = useAuth()
 const toast = useToast()
 
 const horizonItems = [
@@ -57,22 +56,14 @@ const error = ref<string | null>(null)
 
 async function save() {
   error.value = null
-  if (!supabase) {
-    error.value = 'Backend do roadmap não configurado.'
-    return
-  }
   if (!form.title.trim()) {
     error.value = 'Informe um título.'
     return
   }
-  const id = props.item?.id || slugify(form.title)
-  if (!id) {
-    error.value = 'Título inválido para gerar o identificador.'
-    return
-  }
   saving.value = true
-  const row = {
-    id,
+  // O id (`publicId`, uuid) é gerado pelo engagement na criação — o front não o
+  // deriva mais do título (não há mais slug).
+  const payload = {
     title: form.title.trim(),
     horizon: form.horizon,
     summary: form.summary.trim(),
@@ -87,11 +78,18 @@ async function save() {
       files: form.technicalFiles
     }
   }
-  const { error: err } = await supabase.from('roadmap_items').upsert(row, { onConflict: 'id' })
-  saving.value = false
-  if (err) {
-    error.value = err.message
+  try {
+    if (props.item) {
+      await bffFetch(`/roadmap/items/${props.item.id}`, { method: 'PATCH', body: payload, skipDemo: true })
+    } else {
+      await bffFetch('/roadmap/items', { method: 'POST', body: payload, skipDemo: true })
+    }
+  } catch (err) {
+    const e = err as { data?: { message?: string }, message?: string }
+    error.value = e?.data?.message ?? e?.message ?? 'Não foi possível salvar o item.'
     return
+  } finally {
+    saving.value = false
   }
   toast.add({
     title: props.item ? 'Item atualizado!' : 'Item criado!',

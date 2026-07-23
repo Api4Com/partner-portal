@@ -1,23 +1,17 @@
 <script setup lang="ts">
-import { fetchRoadmapData, whatsappUrl } from '~/lib/roadmap'
-import { overlayDemoInteractions } from '~/lib/demo/demo-roadmap' // [DEMO CRMs]
+import { fetchRoadmapFromBff, whatsappUrl } from '~/lib/roadmap'
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
-// [DEMO CRMs] garante o usuário no cliente (F5): a auth SSR não resolve, e o
-// middleware global não re-roda na carga inicial — sem isto o `user` ficaria null.
-const { user: authUser, fetchUser } = useAuth()
+// Garante o usuário no cliente (F5): a auth SSR não resolve, e o middleware global
+// não re-roda na carga inicial — sem isto o `user` ficaria null.
+const { user: authUser, fetchUser, bffFetch } = useAuth()
 const { items, states, myComments } = useRoadmap()
-// [DEMO CRMs] contas demo: os ITENS vêm do Supabase como sempre; só as INTERAÇÕES
-// (reação/comentários) são sobrepostas do localStorage.
-const demoEnabled = useDemoGate()
 
 // Lê itens publicados + estado do usuário. A auth SSR não resolve o usuário, então
 // no servidor isto volta vazio e o Nuxt cacheia esse vazio — por isso REBUSCAMOS no
 // cliente (`refresh()` no onMounted), senão o roadmap "some" no F5.
 const { data, refresh } = await useAsyncData('roadmap', async () => {
-  if (!user.value || !supabase) return { items: [], states: {}, comments: {} }
-  return await fetchRoadmapData(supabase, user.value.id)
+  if (!authUser.value) return { items: [], states: {}, comments: {} }
+  return await fetchRoadmapFromBff(bffFetch)
 })
 
 // No F5 a auth SSR não resolve o usuário, então o `useAsyncData` volta vazio e o
@@ -31,16 +25,8 @@ onMounted(async () => {
 watchEffect(() => {
   if (!data.value) return
   items.value = data.value.items
-  // [DEMO CRMs] nas contas demo, sobrepõe reação/comentários do localStorage por cima
-  // do que veio do Supabase (só no cliente — o localStorage não existe no SSR).
-  if (import.meta.client && demoEnabled.value && user.value) {
-    const { states: s, comments: c } = overlayDemoInteractions(user.value.email, data.value.states, data.value.comments)
-    states.value = s
-    myComments.value = c
-  } else {
-    states.value = data.value.states
-    myComments.value = data.value.comments
-  }
+  states.value = data.value.states
+  myComments.value = data.value.comments
 })
 
 // Camada do que já está em desenvolvimento.
@@ -48,7 +34,7 @@ const nowItems = computed(() => items.value.filter(i => i.horizon === 'now'))
 // Caixa de ideias no radar: "próximo" + "futuro" juntos, sem ordem de prioridade.
 const radarItems = computed(() => items.value.filter(i => i.horizon !== 'now'))
 
-// [DEMO CRMs] Modal de "Solicitar demanda" — restaurado só para as contas demo.
+// Modal de "Solicitar demanda" (POST /roadmap/requests via BFF).
 // Fora delas, o botão continua sendo o link direto pro WhatsApp (ver template).
 const requestOpen = ref(false)
 </script>
@@ -70,24 +56,12 @@ const requestOpen = ref(false)
             </p>
           </div>
 
-          <!-- [DEMO CRMs] Contas demo abrem o formulário; as demais seguem no WhatsApp. -->
+          <!-- Abre o formulário de solicitação (POST /roadmap/requests via BFF). -->
           <UButton
-            v-if="demoEnabled"
             icon="i-lucide-lightbulb"
             size="lg"
             class="shrink-0"
             @click="requestOpen = true"
-          >
-            Solicitar demanda
-          </UButton>
-          <UButton
-            v-else
-            icon="i-simple-icons-whatsapp"
-            size="lg"
-            class="shrink-0"
-            :to="whatsappUrl('Olá! Gostaria de solicitar uma demanda para o roadmap.')"
-            target="_blank"
-            rel="noopener"
           >
             Solicitar demanda
           </UButton>
@@ -201,9 +175,8 @@ const requestOpen = ref(false)
   </div>
 
   <RoadmapDrawer />
-  <!-- [DEMO CRMs] Formulário de solicitação de demanda — só para as contas demo. -->
+  <!-- Formulário de solicitação de demanda (todos os parceiros). -->
   <RoadmapRequestModal
-    v-if="demoEnabled"
     v-model:open="requestOpen"
   />
 </template>

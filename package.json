@@ -1,6 +1,6 @@
 {
   "name": "partner-portal-nuxt",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -18,7 +18,6 @@
     "@iconify-json/lucide": "^1.2.114",
     "@iconify-json/simple-icons": "^1.2.86",
     "@nuxt/ui": "^4.9.0",
-    "@supabase/supabase-js": "^2.58.0",
     "nuxt": "^4.4.8",
     "tailwindcss": "^4.3.1"
   },
