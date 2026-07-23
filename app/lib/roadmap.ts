@@ -179,15 +179,13 @@ export interface RoadmapItemView {
 type BffFetch = <T>(path: string, opts?: { skipDemo?: boolean }) => Promise<T>
 
 /**
- * Lê os itens publicados + estado do usuário pelo BFF (Modelo B). Substitui o
- * `fetchRoadmapData` (Supabase) no caminho do parceiro. `skipDemo` garante itens
- * reais também nas contas demo (as interações demo são sobrepostas em `roadmap.vue`).
+ * Quebra as views do BFF nas três estruturas que a UI consome. Usado pelos dois
+ * caminhos: o do parceiro (`fetchRoadmapFromBff`) e o do admin (`fetchAdminData`),
+ * que recebe os itens dentro do overview.
  */
-export async function fetchRoadmapFromBff(
-  bffFetch: BffFetch
-): Promise<{ items: RoadmapItem[], states: ItemStateMap, comments: CommentMap }> {
-  const views = await bffFetch<RoadmapItemView[]>('/roadmap/items', { skipDemo: true })
-
+export function splitItemViews(
+  views: RoadmapItemView[] | null | undefined
+): { items: RoadmapItem[], states: ItemStateMap, comments: CommentMap } {
   const items: RoadmapItem[] = []
   const states: ItemStateMap = {}
   const comments: CommentMap = {}
@@ -212,4 +210,17 @@ export async function fetchRoadmapFromBff(
   }
 
   return { items, states, comments }
+}
+
+/**
+ * Lê os itens publicados + estado do usuário pelo BFF (Modelo B). Substitui o
+ * `fetchRoadmapData` (Supabase) no caminho do parceiro. `skipDemo` garante itens
+ * reais também nas contas demo.
+ */
+export async function fetchRoadmapFromBff(
+  bffFetch: BffFetch
+): Promise<{ items: RoadmapItem[], states: ItemStateMap, comments: CommentMap }> {
+  return splitItemViews(
+    await bffFetch<RoadmapItemView[]>('/roadmap/items', { skipDemo: true })
+  )
 }

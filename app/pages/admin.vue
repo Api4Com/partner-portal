@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { fetchAdminData } from '~/lib/admin'
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const { user, bffFetch } = useAuth()
+// Mesma allowlist que barra as rotas de admin no BFF — fonte única do gate.
+const { data: isAdmin, status: adminStatus } = useIsAdmin()
 
 // Resolve no cliente (sessão garantida) — evita falso "não-admin" quando o SSR roda sem sessão.
 const { data, status } = useAsyncData('admin', async () => {
-  if (!user.value || !supabase) return null
-  const { data: ok } = await supabase.rpc('roadmap_is_admin')
-  if (ok !== true) return null
-  return await fetchAdminData(supabase)
-}, { server: false, lazy: true, default: () => null, watch: [user] })
+  if (!user.value || !isAdmin.value) return null
+  return await fetchAdminData(bffFetch)
+}, { server: false, lazy: true, default: () => null, watch: [user, isAdmin] })
 
-// Redireciona só depois de resolver e confirmar que não é admin.
+// Redireciona pelo GATE, não pelo `data`: o `isAdmin` começa `false` e só resolve
+// depois: olhar `!data` expulsaria um admin real no primeiro tick.
 watchEffect(() => {
-  if (import.meta.client && status.value === 'success' && user.value && !data.value) {
+  if (import.meta.client && adminStatus.value === 'success' && user.value && !isAdmin.value) {
     navigateTo('/')
   }
 })

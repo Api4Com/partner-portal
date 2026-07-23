@@ -12,7 +12,7 @@ defineProps<{
 }>()
 const emit = defineEmits<{ changed: [] }>()
 
-const supabase = useSupabaseClient()
+const { bffFetch } = useAuth()
 const toast = useToast()
 
 function fmt(iso: string) {
@@ -20,10 +20,16 @@ function fmt(iso: string) {
 }
 
 async function removeComment(c: AdminComment) {
-  if (!supabase) return
   if (!window.confirm('Excluir este comentário do parceiro?')) return
-  const { error } = await supabase.from('roadmap_comments').delete().eq('id', c.id)
-  if (error) return toast.add({ title: 'Erro', description: error.message, color: 'error', icon: 'i-lucide-triangle-alert' })
+  try {
+    // Comentário de OUTRO usuário: o engagement libera porque o BFF sinaliza admin
+    // (`authorizeCommentMutation` deixa passar quando `isAdmin`).
+    await bffFetch(`/roadmap/items/${c.itemId}/comments/${c.id}`, { method: 'DELETE', skipDemo: true })
+  } catch (err) {
+    const e = err as { data?: { message?: string }, message?: string }
+    const description = e?.data?.message ?? e?.message ?? 'Tente novamente em instantes.'
+    return toast.add({ title: 'Erro', description, color: 'error', icon: 'i-lucide-triangle-alert' })
+  }
   toast.add({ title: 'Comentário excluído.', color: 'success', icon: 'i-lucide-circle-check' })
   emit('changed')
 }
