@@ -32,11 +32,6 @@ const open = computed({
 
 const horizon = computed(() => HORIZONS.find(h => h.id === activeItem.value?.horizon))
 
-// Força o download (Content-Disposition: attachment) em vez de abrir inline.
-function downloadUrl(url: string) {
-  return url + (url.includes('?') ? '&' : '?') + 'download'
-}
-
 // Reações (gostei/não gostei) do item aberto.
 const state = computed(() => (activeItem.value ? states.value[activeItem.value.id] : undefined))
 const myReaction = computed(() => state.value?.myReaction ?? null)
@@ -147,8 +142,9 @@ function vote(reaction: 'like' | 'dislike') {
               <a
                 v-for="(f, idx) in activeItem.commercial.files"
                 :key="idx"
-                :href="downloadUrl(f.url)"
-                :download="f.label"
+                :href="f.url"
+                target="_blank"
+                rel="noopener"
                 class="group flex w-full items-center justify-between rounded-xl border border-default bg-default p-3 text-left transition-colors hover:border-brand-300 hover:bg-brand-50"
               >
                 <span class="flex items-center gap-3">
@@ -203,8 +199,9 @@ function vote(reaction: 'like' | 'dislike') {
               <a
                 v-for="(f, idx) in activeItem.technical.files"
                 :key="idx"
-                :href="downloadUrl(f.url)"
-                :download="f.label"
+                :href="f.url"
+                target="_blank"
+                rel="noopener"
                 class="group flex w-full items-center justify-between rounded-xl border border-default bg-default p-3 text-left transition-colors hover:border-brand-300 hover:bg-brand-50"
               >
                 <span class="flex items-center gap-3">

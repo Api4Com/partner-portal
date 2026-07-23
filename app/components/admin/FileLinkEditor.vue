@@ -4,8 +4,7 @@ import type { FileLink } from '~/lib/roadmap'
 const props = defineProps<{ prefix: string }>()
 const model = defineModel<FileLink[]>({ required: true })
 
-const BUCKET = 'roadmap-assets'
-const supabase = useSupabaseClient()
+const { bffFetch } = useAuth()
 const toast = useToast()
 
 const uploading = ref(false)
@@ -15,31 +14,24 @@ function pick() {
   fileInput.value?.click()
 }
 
-function safeName(name: string) {
-  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-')
-}
-
 async function onFiles(e: Event) {
   const input = e.target as HTMLInputElement
   const files = Array.from(input.files ?? [])
   if (!files.length) return
-  // Sem SUPABASE_URL/KEY não há Storage: avisa em vez de estourar no meio do upload.
-  if (!supabase) {
-    toast.add({ title: 'Upload indisponível', description: 'O backend do roadmap não está configurado.', color: 'error', icon: 'i-lucide-triangle-alert' })
-    input.value = ''
-    return
-  }
   uploading.value = true
   try {
     for (const file of files) {
-      const path = `${props.prefix}/${crypto.randomUUID()}-${safeName(file.name)}`
-      const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
-      if (error) {
-        toast.add({ title: 'Falha no upload', description: `${file.name}: ${error.message}`, color: 'error', icon: 'i-lucide-triangle-alert' })
-        continue
+      // Upload via proxy no BFF (→ S3). A resposta já é o {label,url,path} do item.
+      const form = new FormData()
+      form.append('file', file)
+      form.append('prefix', props.prefix)
+      try {
+        const stored = await bffFetch<FileLink>('/roadmap/uploads', { method: 'POST', body: form, skipDemo: true })
+        model.value = [...model.value, stored]
+      } catch (err) {
+        const e = err as { data?: { message?: string }, message?: string }
+        toast.add({ title: 'Falha no upload', description: `${file.name}: ${e?.data?.message ?? e?.message ?? 'erro'}`, color: 'error', icon: 'i-lucide-triangle-alert' })
       }
-      const url = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
-      model.value = [...model.value, { label: file.name, url, path }]
     }
   } finally {
     uploading.value = false
@@ -50,7 +42,10 @@ async function onFiles(e: Event) {
 async function remove(idx: number) {
   const f = model.value[idx]
   model.value = model.value.filter((_, i) => i !== idx)
-  if (f?.path && supabase) await supabase.storage.from(BUCKET).remove([f.path]).catch(() => {})
+  // Best-effort: remover o objeto no S3 (um órfão não deve travar a UI).
+  if (f?.path) {
+    await bffFetch(`/roadmap/uploads?path=${encodeURIComponent(f.path)}`, { method: 'DELETE', skipDemo: true }).catch(() => {})
+  }
 }
 </script>
 
